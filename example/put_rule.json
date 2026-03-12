@@ -1,0 +1,30 @@
+{
+   "name": "my-rule",
+   "transactions": [
+      {
+         "url": "http://localhost:3002/order"
+      },
+      {
+         "url": "http://localhost:3003/payment"
+      }
+   ],
+   "rollback": [
+      {
+         "url": "http://localhost:3002/rollback"
+      },
+      {
+         "url": "http://localhost:3003/rollback"
+      }
+   ],
+   "transforms": [
+      {
+         "url": "http://localhost:3002/transform-payload"
+      }
+   ],
+   "configs": {
+      "max_retry": 3,
+      "max_timeout": "1m",
+      "parallel": true,
+      "sync": false
+   }
+}
