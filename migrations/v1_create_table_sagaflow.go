@@ -3,10 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/IsaacDSC/migrations"
+	"github.com/IsaacDSC/migrations/migration"
 )
 
 func init() {
-	state = append(state, Migration{
+	migrations.State = append(migrations.State, migration.Migrate{
 		Version: 1,
 		Up: func(db *sql.Tx) error {
 			const query = `CREATE TABLE IF NOT EXISTS rules (

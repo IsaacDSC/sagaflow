@@ -1,5 +1,9 @@
 github.com/IsaacDSC/clienthttp v1.0.1 h1:FIptKZ1ZjJrLGn0cB9S8nzUBErE2eq2QaBzUiJOmBPI=
 github.com/IsaacDSC/clienthttp v1.0.1/go.mod h1:TFzAThW6KUDOugso4Fq4GQdtpOhFRL+ByH3YMFaVhbM=
+github.com/IsaacDSC/migrations v0.0.1 h1:upqw3gqeG0YcYdGm1+cL1vAVRujDtTH3c+S42scv0yI=
+github.com/IsaacDSC/migrations v0.0.1/go.mod h1:E2r1syujfroBEXb/xR1eYWTjqFsl5nXH8mEaIgAlD1A=
+github.com/IsaacDSC/migrations v0.0.2 h1:oz06Sr30XXNwNQ7zDvjWOe+WtCADjwup5VFwnK202NQ=
+github.com/IsaacDSC/migrations v0.0.2/go.mod h1:E2r1syujfroBEXb/xR1eYWTjqFsl5nXH8mEaIgAlD1A=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/lib/pq v1.11.2 h1:x6gxUeu39V0BHZiugWe8LXZYZ+Utk7hSJGThs8sdzfs=
