@@ -45,6 +45,11 @@ func TestHttpClient_Send_Success(t *testing.T) {
 		t.Fatalf("failed to parse test url: %v", err)
 	}
 
+	httpCfg := rule.HTTPConfig{
+		Method: http.MethodPost,
+		URL:    u.String(),
+	}
+
 	orchID := uuid.New()
 	input := orchestrator.Input{
 		OrchestratorID: orchID,
@@ -62,7 +67,7 @@ func TestHttpClient_Send_Success(t *testing.T) {
 	}
 
 	client := NewHttpClient()
-	if err := client.Send(context.Background(), u.String(), input, conf); err != nil {
+	if err := client.Send(context.Background(), httpCfg, input, conf); err != nil {
 		t.Fatalf("Send() unexpected error: %v", err)
 	}
 
@@ -109,6 +114,11 @@ func TestHttpClient_Send_ErrorStatus(t *testing.T) {
 		t.Fatalf("failed to parse test url: %v", err)
 	}
 
+	httpCfg := rule.HTTPConfig{
+		Method: http.MethodPost,
+		URL:    u.String(),
+	}
+
 	input := orchestrator.Input{
 		OrchestratorID: uuid.New(),
 		Data:           nil,
@@ -121,7 +131,7 @@ func TestHttpClient_Send_ErrorStatus(t *testing.T) {
 	}
 
 	client := NewHttpClient()
-	if err := client.Send(context.Background(), u.String(), input, conf); err == nil {
+	if err := client.Send(context.Background(), httpCfg, input, conf); err == nil {
 		t.Fatalf("expected error for non-2xx response, got nil")
 	}
 }

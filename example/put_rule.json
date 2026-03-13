@@ -2,18 +2,22 @@
    "name": "my-rule",
    "transactions": [
       {
-         "url": "http://localhost:3002/order"
+         "url": "http://localhost:3002/order",
+         "method": "POST"
       },
       {
-         "url": "http://localhost:3003/payment"
+         "url": "http://localhost:3003/payment",
+         "method": "POST"
       }
    ],
    "rollback": [
       {
-         "url": "http://localhost:3002/rollback"
+         "url": "http://localhost:3002/rollback",
+         "method": "DELETE"
       },
       {
-         "url": "http://localhost:3003/rollback"
+         "url": "http://localhost:3003/rollback",
+         "method": "DELETE"
       }
    ],
    "transforms": [

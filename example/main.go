@@ -19,7 +19,7 @@ func server01() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[*] Request received: %s %s, counter: %d\n", r.Method, r.URL.Path, counter)
-		if counter < 2 {
+		if counter < 10 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
 			w.Write([]byte("Too many requests"))
@@ -43,7 +43,7 @@ func server02() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[*] Request received: %s %s, counter: %d\n", r.Method, r.URL.Path, counter)
-		if counter < 2 {
+		if counter < 10 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
 			w.Write([]byte("Too many requests"))

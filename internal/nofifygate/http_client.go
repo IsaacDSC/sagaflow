@@ -3,6 +3,9 @@ package nofifygate
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/IsaacDSC/clienthttp"
@@ -23,7 +26,7 @@ func NewHttpClient() *HttpClient {
 	return &HttpClient{}
 }
 
-func (h HttpClient) Send(ctx context.Context, u string, payload orchestrator.Input, conf rule.Configs) error {
+func (h HttpClient) Send(ctx context.Context, httpCfg rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
 	var clientOpts []clienthttp.Option
 
 	if conf.MaxTimeout != "" {
@@ -43,7 +46,12 @@ func (h HttpClient) Send(ctx context.Context, u string, payload orchestrator.Inp
 		err    error
 	)
 
-	client, err = clienthttp.New(u, clientOpts...)
+	baseURL, path, err := splitBaseURLAndPath(httpCfg.URL)
+	if err != nil {
+		return fmt.Errorf("failed to split base URL and path: %w", err)
+	}
+
+	client, err = clienthttp.New(baseURL, clientOpts...)
 	if err != nil {
 		return err
 	}
@@ -68,6 +76,19 @@ func (h HttpClient) Send(ctx context.Context, u string, payload orchestrator.Inp
 		}
 	}
 
-	_, err = client.Post(ctx, "", body, clienthttp.WithHeaders(headers))
+	// path evita barra final que faria a lib montar baseURL + "/" e causar redirect 301/302 → GET
+	_, err = client.Do(ctx, httpCfg.Method, path, body, clienthttp.WithHeaders(headers))
 	return err
+}
+
+// splitBaseURLAndPath returns (scheme+host, path) to avoid that clienthttp adds "/" at the end
+// and causes redirect 301/302 → GET
+func splitBaseURLAndPath(rawURL string) (baseURL, path string, err error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+	baseURL = u.Scheme + "://" + u.Host
+	path = strings.TrimPrefix(u.Path, "/")
+	return baseURL, path, nil
 }

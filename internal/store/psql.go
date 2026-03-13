@@ -46,8 +46,8 @@ type (
 
 func (r Rule) rule() rule.Rule {
 	var (
-		tx         []map[string]string
-		rollback   []map[string]string
+		tx         []rule.HTTPConfig
+		rollback   []rule.HTTPConfig
 		transforms []map[string]string
 		configs    rule.Configs
 	)
@@ -123,7 +123,7 @@ func (b Psql) FindAll(ctx context.Context) ([]rule.Rule, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan rule: %w", err)
 		}
-		
+
 		rules = append(rules, r.rule())
 	}
 

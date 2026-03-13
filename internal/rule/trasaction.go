@@ -8,10 +8,15 @@ type (
 	Rule struct {
 		ID           uuid.UUID           `json:"id" yaml:"id"`
 		Name         string              `json:"name" yaml:"name"`
-		Transactions []map[string]string `json:"transactions" yaml:"transactions"`
-		Rollback     []map[string]string `json:"rollback" yaml:"rollback"`
+		Transactions []HTTPConfig        `json:"transactions" yaml:"transactions"`
+		Rollback     []HTTPConfig        `json:"rollback" yaml:"rollback"`
 		Transforms   []map[string]string `json:"transforms" yaml:"transforms"` // ex: []{ {"tx1": "http://..."}, {"tx2": "..."} }
 		Configs      Configs             `json:"configs" yaml:"configs"`
+	}
+
+	HTTPConfig struct {
+		Method string `json:"method" yaml:"method"`
+		URL    string `json:"url" yaml:"url"`
 	}
 
 	Configs struct {

@@ -66,8 +66,10 @@ func main() {
 
 	logger.Info(ctx, "server is running", "port", 3001)
 	srv := &http.Server{
-		Addr:    ":3001",
-		Handler: mux,
+		Addr:         ":3001",
+		Handler:      mux,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 2 * time.Minute,
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},

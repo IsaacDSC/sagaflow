@@ -22,7 +22,7 @@ type (
 	}
 
 	Queue interface {
-		Send(ctx context.Context, url string, tx Input, conf rule.Configs) error
+		Send(ctx context.Context, httpCfg rule.HTTPConfig, tx Input, conf rule.Configs) error
 	}
 )
 
@@ -81,7 +81,7 @@ func (o Orchestrator) parallel(ctx context.Context, Orchestrator rule.Rule, payl
 		done = make(chan struct{})
 	)
 
-	var transactions []map[string]string
+	var transactions []rule.HTTPConfig
 	if isRollback {
 		transactions = Orchestrator.Rollback
 	} else {
@@ -90,11 +90,11 @@ func (o Orchestrator) parallel(ctx context.Context, Orchestrator rule.Rule, payl
 
 	for _, transactionData := range transactions {
 		wg.Add(1)
-		go func(txData map[string]string) {
+		go func(txData rule.HTTPConfig) {
 			defer wg.Done()
-			err := o.gateway.Send(ctx, txData["url"], payload, Orchestrator.Configs)
+			err := o.gateway.Send(ctx, txData, payload, Orchestrator.Configs)
 			if err != nil {
-				log.Printf("error sending transaction is rollback %t with url %s: %v", isRollback, txData["url"], err)
+				log.Printf("error sending transaction is rollback %t with url %s: %v", isRollback, txData.URL, err)
 				errs <- err
 			}
 		}(transactionData)
@@ -116,7 +116,7 @@ func (o Orchestrator) parallel(ctx context.Context, Orchestrator rule.Rule, payl
 }
 
 func (o Orchestrator) nonParallel(ctx context.Context, Orchestrator rule.Rule, tx Input, isRollback bool) (int, error) {
-	var transactions []map[string]string
+	var transactions []rule.HTTPConfig
 	if isRollback {
 		transactions = Orchestrator.Rollback
 	} else {
@@ -124,7 +124,7 @@ func (o Orchestrator) nonParallel(ctx context.Context, Orchestrator rule.Rule, t
 	}
 
 	for i, transactionData := range transactions {
-		err := o.gateway.Send(ctx, transactionData["url"], tx, Orchestrator.Configs)
+		err := o.gateway.Send(ctx, transactionData, tx, Orchestrator.Configs)
 		if err != nil {
 			return i, err
 		}
