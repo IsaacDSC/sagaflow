@@ -3,11 +3,11 @@ package putrule
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/pkg/connector"
+	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
 )
 
@@ -32,7 +32,7 @@ func Handler(s Store) connector.Handler {
 			rl.ID = uuid.New()
 			id, err := s.Save(req.Context(), rl)
 			if err != nil {
-				log.Println("Error creating rule:", err)
+				logger.Error(req.Context(), "error creating rule", "error", err)
 				return &connector.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       "Error creating rule",

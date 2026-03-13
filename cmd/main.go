@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -15,11 +16,13 @@ import (
 	"github.com/IsaacDSC/sagaflow/internal/putrule"
 	"github.com/IsaacDSC/sagaflow/internal/store"
 	"github.com/IsaacDSC/sagaflow/pkg/connector"
+	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	_ "github.com/lib/pq"
 )
 
 func main() {
 	ctx := context.Background()
+	ctx = logger.WithLogger(ctx, logger.DefaultLogger)
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -61,25 +64,33 @@ func main() {
 
 	go refreshRules(ctx, psqlStore, memStore)
 
-	log.Println("server is running on port 3001")
-	log.Fatal(http.ListenAndServe(":3001", mux))
+	logger.Info(ctx, "server is running", "port", 3001)
+	srv := &http.Server{
+		Addr:    ":3001",
+		Handler: mux,
+		BaseContext: func(l net.Listener) context.Context {
+			return ctx
+		},
+	}
+
+	log.Fatal(srv.ListenAndServe())
 }
 
 func refreshRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.MemoryImpl) {
 	ticker := time.NewTicker(1 * time.Minute)
-	fmt.Println("[*] Refreshing rules every 1 minute")
+	logger.Info(ctx, "starting rules refresh", "interval", time.Minute)
 	for {
 		select {
 		case <-ticker.C:
+			logger.Debug(ctx, "refreshing rules", "interval", time.Minute)
 			if err := loadMemRules(ctx, psqlStore, memStore); err != nil {
-				log.Println("failed to load memory rules", err)
+				logger.Error(ctx, "failed to load memory rules", "error", err)
 			}
 		case <-ctx.Done():
 			ticker.Stop()
 			return
 		}
 	}
-
 }
 
 func loadMemRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.MemoryImpl) error {

@@ -88,8 +88,6 @@ func (o Orchestrator) parallel(ctx context.Context, Orchestrator rule.Rule, payl
 		transactions = Orchestrator.Transactions
 	}
 
-	fmt.Println("transactions", transactions)
-
 	for _, transactionData := range transactions {
 		wg.Add(1)
 		go func(txData map[string]string) {

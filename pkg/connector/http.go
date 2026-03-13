@@ -3,6 +3,8 @@ package connector
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/IsaacDSC/sagaflow/pkg/logger"
 )
 
 type Handler struct {
@@ -35,7 +37,25 @@ func Adapter(fn func(req *http.Request) *Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
+		ctx := r.Context()
+		reqLogger := logger.FromContext(ctx).With(
+			"method", r.Method,
+			"path", r.URL.Path,
+		)
+
+		ctx = logger.WithLogger(ctx, reqLogger)
+		r = r.WithContext(ctx)
+
 		resp := fn(r)
+
+		switch {
+		case resp.StatusCode >= 200 && resp.StatusCode < 400:
+			reqLogger.Info("request successful", "status", resp.StatusCode)
+		case resp.StatusCode >= 400 && resp.StatusCode < 500:
+			reqLogger.Warn("request failed", "status", resp.StatusCode, "error", resp.Body)
+		case resp.StatusCode >= 500:
+			reqLogger.Error("request failed", "status", resp.StatusCode, "error", resp.Body)
+		}
 
 		if err := resp.Write(w); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
