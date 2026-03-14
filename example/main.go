@@ -22,12 +22,12 @@ func server01() {
 		if counter < 10 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("Too many requests"))
+			_, _ = w.Write([]byte("Too many requests"))
 			fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
+		_, _ = w.Write([]byte("Hello, World!"))
 		fmt.Printf("[*] Request accepted: %s %s\n", r.Method, r.URL.Path)
 		counter++
 	})
@@ -46,12 +46,12 @@ func server02() {
 		if counter < 10 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("Too many requests"))
+			_, _ = w.Write([]byte("Too many requests"))
 			fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
+		_, _ = w.Write([]byte("Hello, World!"))
 		fmt.Printf("[*] Request accepted: %s %s\n", r.Method, r.URL.Path)
 		counter++
 	})

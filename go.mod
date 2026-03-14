@@ -1,6 +1,6 @@
 module github.com/IsaacDSC/sagaflow
 
-go 1.25.7
+go 1.25.8
 
 require (
 	github.com/IsaacDSC/clienthttp v1.0.1
