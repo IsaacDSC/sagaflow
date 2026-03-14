@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/IsaacDSC/sagaflow/internal/entry"
+	"github.com/IsaacDSC/sagaflow/internal/health"
 	"github.com/IsaacDSC/sagaflow/internal/nofifygate"
 	"github.com/IsaacDSC/sagaflow/internal/orchestrator"
 	"github.com/IsaacDSC/sagaflow/internal/putrule"
@@ -53,6 +54,7 @@ func main() {
 	orchestratorService := orchestrator.New(memStore, gate)
 
 	handlers := []connector.Handler{
+		health.Handler(),
 		entry.Handler(orchestratorService),
 		putrule.Handler(psqlStore),
 	}

@@ -13,7 +13,7 @@
  ### Send transaction
  ```sh
 curl -X POST \
- http://localhost:3001/api/v1/transaction/rule/da844d8f-80d7-46a2-a9d5-1909df8567f3 \
+ http://localhost:3001/api/v1/transaction/rule/333e8d7b-0997-4f00-9267-ae41622c9225 \
  -H "Content-Type: application/json" \
  -H "Accept: application/json" \
  -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \
