@@ -11,6 +11,7 @@ import (
 	"github.com/IsaacDSC/sagaflow/internal/putrule"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/mocks/mockputrule"
+	"github.com/IsaacDSC/sagaflow/pkg/connector"
 	"github.com/google/uuid"
 	"go.uber.org/mock/gomock"
 )
@@ -27,11 +28,16 @@ func TestHandler_InvalidBody(t *testing.T) {
 
 	resp := h.Handler(req)
 
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	if resp.Code() != http.StatusBadRequest {
+		t.Errorf("StatusCode = %d, want %d", resp.Code(), http.StatusBadRequest)
 	}
-	if resp.Body != "Invalid request body" {
-		t.Errorf("Body = %v, want %q", resp.Body, "Invalid request body")
+	expectedBody := connector.DataErr{
+		Msg:    "Invalid request body",
+		Action: "please check the request body",
+	}
+
+	if resp.Data() != expectedBody {
+		t.Errorf("Body = %v, want %v", resp.Data(), expectedBody)
 	}
 }
 
@@ -46,7 +52,7 @@ func TestHandler_SaveError(t *testing.T) {
 		Times(1)
 
 	body := rule.Rule{
-		Name: "test-rule",
+		Name:         "test-rule",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 	}
@@ -57,11 +63,15 @@ func TestHandler_SaveError(t *testing.T) {
 
 	resp := h.Handler(req)
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusInternalServerError)
+	if resp.Code() != http.StatusInternalServerError {
+		t.Errorf("StatusCode = %d, want %d", resp.Code(), http.StatusInternalServerError)
 	}
-	if resp.Body != "Error creating rule" {
-		t.Errorf("Body = %v, want %q", resp.Body, "Error creating rule")
+	bodyErr, ok := resp.Data().(connector.DataErr)
+	if !ok {
+		t.Fatalf("Body type = %T, want connector.BodyErr", resp.Data())
+	}
+	if bodyErr.Msg != "Error creating rule" {
+		t.Errorf("Body.Msg = %q, want %q", bodyErr.Msg, "Error creating rule")
 	}
 }
 
@@ -82,7 +92,7 @@ func TestHandler_Success(t *testing.T) {
 		Times(1)
 
 	body := rule.Rule{
-		Name: "my-saga",
+		Name:         "my-saga",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 	}
@@ -93,12 +103,12 @@ func TestHandler_Success(t *testing.T) {
 
 	resp := h.Handler(req)
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
+	if resp.Code() != http.StatusOK {
+		t.Errorf("StatusCode = %d, want %d", resp.Code(), http.StatusOK)
 	}
-	rl, ok := resp.Body.(rule.Rule)
+	rl, ok := resp.Data().(rule.Rule)
 	if !ok {
-		t.Fatalf("Body type = %T, want rule.Rule", resp.Body)
+		t.Fatalf("Body type = %T, want rule.Rule", resp.Data())
 	}
 	if rl.ID != id {
 		t.Errorf("Body.ID = %v, want %v", rl.ID, id)

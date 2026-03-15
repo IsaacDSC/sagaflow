@@ -19,6 +19,10 @@ func server01() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[*] Request received: %s %s, counter: %d\n", r.Method, r.URL.Path, counter)
+		// if strings.Contains(r.URL.Path, "rollback") {
+		// 	w.WriteHeader(http.StatusInternalServerError)
+		// 	return
+		// }
 		if counter < 10 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)

@@ -8,12 +8,15 @@ import (
 	"sync"
 
 	"github.com/IsaacDSC/sagaflow/internal/rule"
+	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
 )
 
 var (
 	ErrorConsumerTransaction = errors.New("error on consumer transaction")
 	ErrorRuleNotFound        = errors.New("rule not found")
+	ErrorTransactionRollback = errors.New("error when transaction rollback") // when the transaction is rollback with error
+	ErrorTransactionFailed   = errors.New("error transaction failed")        // when the transaction is not successful
 )
 
 type (
@@ -47,6 +50,7 @@ func New(repository Store, gateway Queue) *Orchestrator {
 }
 
 func (o Orchestrator) Execute(ctx context.Context, txInput Input) error {
+	l := logger.FromContext(ctx)
 	Orchestrator, err := o.repository.Find(ctx, txInput.OrchestratorID)
 	if err != nil {
 		return err
@@ -56,19 +60,21 @@ func (o Orchestrator) Execute(ctx context.Context, txInput Input) error {
 		err = o.parallel(ctx, Orchestrator, txInput, false)
 		if err != nil {
 			if err := o.parallel(ctx, Orchestrator, txInput, true); err != nil {
-				return err
+				return ErrorTransactionRollback
 			}
+			return ErrorTransactionFailed
 		}
-
 		return nil
 	}
 
 	idxRollback, err := o.nonParallel(ctx, Orchestrator, txInput, false)
 	if err != nil {
+		l.Warn("error on non parallel transaction", "error", err)
 		Orchestrator.Rollback = Orchestrator.Rollback[:idxRollback]
 		if _, err := o.nonParallel(ctx, Orchestrator, txInput, true); err != nil {
-			return err
+			return ErrorTransactionRollback
 		}
+		return ErrorTransactionFailed
 	}
 
 	return nil

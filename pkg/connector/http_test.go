@@ -10,7 +10,7 @@ import (
 func TestResponse_Write(t *testing.T) {
 	t.Run("writes status code and JSON body", func(t *testing.T) {
 		body := map[string]string{"key": "value"}
-		resp := Response{
+		resp := ResponseOK{
 			StatusCode: http.StatusOK,
 			Body:       body,
 			Headers:    http.Header{},
@@ -35,11 +35,11 @@ func TestResponse_Write(t *testing.T) {
 	})
 
 	t.Run("writes custom headers", func(t *testing.T) {
-		resp := Response{
+		resp := ResponseOK{
 			StatusCode: http.StatusCreated,
 			Body:       nil,
 			Headers: http.Header{
-				"X-Request-Id": {"req-123"},
+				"X-Request-Id":  {"req-123"},
 				"Cache-Control": {"no-cache"},
 			},
 		}
@@ -61,8 +61,39 @@ func TestResponse_Write(t *testing.T) {
 		}
 	})
 
+	t.Run("writes body with error", func(t *testing.T) {
+		body := DataErr{Msg: "test", Action: "test"}
+		resp := ResponseError{
+			StatusCode: http.StatusInternalServerError,
+			Body:       body,
+			Headers:    http.Header{},
+		}
+		w := httptest.NewRecorder()
+
+		err := resp.Write(w)
+		if err != nil {
+			t.Fatalf("Write() error = %v", err)
+		}
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+		}
+
+		var got DataErr
+		if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if got.Msg != "test" {
+			t.Errorf("body = %v, want test", got)
+		}
+		if got.Action != "test" {
+			t.Errorf("body = %v, want test", got)
+		}
+
+	})
+
 	t.Run("writes nil body without error", func(t *testing.T) {
-		resp := Response{
+		resp := ResponseOK{
 			StatusCode: http.StatusNoContent,
 			Body:       nil,
 			Headers:    http.Header{},
@@ -85,8 +116,8 @@ func TestResponse_Write(t *testing.T) {
 
 func TestAdapter(t *testing.T) {
 	t.Run("sets Content-Type and calls handler", func(t *testing.T) {
-		handler := Adapter(func(req *http.Request) *Response {
-			return &Response{
+		handler := Adapter(func(req *http.Request) Response {
+			return ResponseOK{
 				StatusCode: http.StatusOK,
 				Body:       map[string]string{"ok": "true"},
 				Headers:    http.Header{},
@@ -115,9 +146,9 @@ func TestAdapter(t *testing.T) {
 
 	t.Run("passes request with context to handler", func(t *testing.T) {
 		var receivedReq *http.Request
-		handler := Adapter(func(req *http.Request) *Response {
+		handler := Adapter(func(req *http.Request) Response {
 			receivedReq = req
-			return &Response{StatusCode: http.StatusOK, Headers: http.Header{}}
+			return ResponseOK{StatusCode: http.StatusOK, Headers: http.Header{}}
 		})
 
 		req := httptest.NewRequest(http.MethodPost, "/echo", nil)
@@ -137,8 +168,8 @@ func TestAdapter(t *testing.T) {
 	})
 
 	t.Run("writes response via Write", func(t *testing.T) {
-		handler := Adapter(func(req *http.Request) *Response {
-			return &Response{
+		handler := Adapter(func(req *http.Request) Response {
+			return ResponseOK{
 				StatusCode: http.StatusCreated,
 				Body:       map[string]int{"id": 42},
 				Headers:    http.Header{"X-Custom": {"custom-value"}},
@@ -168,8 +199,8 @@ func TestAdapter(t *testing.T) {
 	t.Run("writes Internal server error when Write fails", func(t *testing.T) {
 		// Body that cannot be JSON-encoded causes resp.Write to return an error.
 		// Status may already be 200 (written before Encode), but body must be overwritten.
-		handler := Adapter(func(req *http.Request) *Response {
-			return &Response{
+		handler := Adapter(func(req *http.Request) Response {
+			return ResponseOK{
 				StatusCode: http.StatusOK,
 				Body:       make(chan int), // cannot be JSON encoded
 				Headers:    http.Header{},

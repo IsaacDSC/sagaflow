@@ -1,7 +1,6 @@
 package connector
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
@@ -9,31 +8,17 @@ import (
 
 type Handler struct {
 	Path    string
-	Handler func(req *http.Request) *Response
+	Handler func(req *http.Request) Response
 }
 
-type Response struct {
-	StatusCode int
-	Body       any
-	Headers    http.Header
+type Response interface {
+	Write(w http.ResponseWriter) error
+	Code() int
+	BodyBytes() []byte
+	Data() any
 }
 
-func (r Response) Write(w http.ResponseWriter) error {
-	for key, values := range r.Headers {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-
-	w.WriteHeader(r.StatusCode)
-	if r.Body != nil {
-		return json.NewEncoder(w).Encode(r.Body)
-	}
-
-	return nil
-}
-
-func Adapter(fn func(req *http.Request) *Response) http.HandlerFunc {
+func Adapter(fn func(req *http.Request) Response) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -49,12 +34,12 @@ func Adapter(fn func(req *http.Request) *Response) http.HandlerFunc {
 		resp := fn(r)
 
 		switch {
-		case resp.StatusCode >= 200 && resp.StatusCode < 400:
-			reqLogger.Info("request successful", "status", resp.StatusCode)
-		case resp.StatusCode >= 400 && resp.StatusCode < 500:
-			reqLogger.Warn("request failed", "status", resp.StatusCode, "error", resp.Body)
-		case resp.StatusCode >= 500:
-			reqLogger.Error("request failed", "status", resp.StatusCode, "error", resp.Body)
+		case resp.Code() >= 200 && resp.Code() >= 400:
+			reqLogger.Info("request successful", "status", resp.Code())
+		case resp.Code() >= 400 && resp.Code() < 500:
+			reqLogger.Warn("request failed", "status", resp.Code(), "error", string(resp.BodyBytes()))
+		case resp.Code() >= 500:
+			reqLogger.Error("request failed", "status", resp.Code(), "error", string(resp.BodyBytes()))
 		}
 
 		if err := resp.Write(w); err != nil {

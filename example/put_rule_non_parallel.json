@@ -1,0 +1,34 @@
+{
+   "name": "my-rule-non-parallel",
+   "transactions": [
+      {
+         "url": "http://localhost:3002/order",
+         "method": "POST"
+      },
+      {
+         "url": "http://localhost:3003/payment",
+         "method": "POST"
+      }
+   ],
+   "rollback": [
+      {
+         "url": "http://localhost:3002/rollback",
+         "method": "DELETE"
+      },
+      {
+         "url": "http://localhost:3003/rollback",
+         "method": "DELETE"
+      }
+   ],
+   "transforms": [
+      {
+         "url": "http://localhost:3002/transform-payload"
+      }
+   ],
+   "configs": {
+      "max_retry": 3,
+      "max_timeout": "1m",
+      "parallel": false,
+      "sync": false
+   }
+}

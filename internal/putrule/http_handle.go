@@ -20,12 +20,15 @@ type (
 func Handler(s Store) connector.Handler {
 	return connector.Handler{
 		Path: "PUT /api/v1/rule",
-		Handler: func(req *http.Request) *connector.Response {
+		Handler: func(req *http.Request) connector.Response {
 			var rl rule.Rule
 			if err := json.NewDecoder(req.Body).Decode(&rl); err != nil {
-				return &connector.Response{
+				return connector.ResponseError{
 					StatusCode: http.StatusBadRequest,
-					Body:       "Invalid request body",
+					Body: connector.DataErr{
+						Msg:    "Invalid request body",
+						Action: "please check the request body",
+					},
 				}
 			}
 
@@ -33,15 +36,18 @@ func Handler(s Store) connector.Handler {
 			id, err := s.Save(req.Context(), rl)
 			if err != nil {
 				logger.Error(req.Context(), "error creating rule", "error", err)
-				return &connector.Response{
+				return connector.ResponseError{
 					StatusCode: http.StatusInternalServerError,
-					Body:       "Error creating rule",
+					Body: connector.DataErr{
+						Msg:    "Error creating rule",
+						Action: "please try again later",
+					},
 				}
 			}
 
 			rl.ID = id
 
-			return &connector.Response{
+			return connector.ResponseOK{
 				StatusCode: http.StatusOK,
 				Body:       rl,
 			}
