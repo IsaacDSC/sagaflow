@@ -140,9 +140,10 @@ func TestPsql_SaveTransaction(t *testing.T) {
 
 	dataJSON, _ := json.Marshal(input.Data)
 	headersJSON, _ := json.Marshal(input.Headers)
+	configRulesJSON, _ := json.Marshal(input.ConfigRules)
 
 	mock.ExpectExec("INSERT INTO transactions").
-		WithArgs(orchID, txID, dataJSON, headersJSON, store.StatusFailedExecuteRollback, errorMsg).
+		WithArgs(orchID, txID, dataJSON, headersJSON, store.StatusFailedExecuteRollback, errorMsg, configRulesJSON).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	p := store.NewPsql(db)
@@ -174,7 +175,7 @@ func TestPsql_SaveTransaction_Error(t *testing.T) {
 	dbErr := errors.New("insert failed")
 
 	mock.ExpectExec("INSERT INTO transactions").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(dbErr)
 
 	p := store.NewPsql(db)
