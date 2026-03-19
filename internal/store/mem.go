@@ -10,7 +10,7 @@ import (
 )
 
 type MemoryImpl interface {
-	orchestrator.Store
+	orchestrator.MemStore
 	Refresh(ctx context.Context, rules []rule.Rule) error
 }
 

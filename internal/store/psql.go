@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/IsaacDSC/sagaflow/internal/orchestrator"
 	"github.com/IsaacDSC/sagaflow/internal/putrule"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/google/uuid"
@@ -13,7 +14,9 @@ import (
 
 type PsqlImpl interface {
 	putrule.Store
+	orchestrator.PsqlStore
 	FindAll(ctx context.Context) ([]rule.Rule, error)
+	UpdateTransaction(ctx context.Context, txID uuid.UUID) error
 }
 
 var _ PsqlImpl = &Psql{}
@@ -83,7 +86,7 @@ func ruleToModel(rule rule.Rule) Rule {
 	}
 }
 
-func (b Psql) Save(ctx context.Context, rule rule.Rule) (uuid.UUID, error) {
+func (p Psql) Save(ctx context.Context, rule rule.Rule) (uuid.UUID, error) {
 	const query = `
 		INSERT INTO rules (id, name, transactions, rollback, transforms, configs)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -94,7 +97,7 @@ func (b Psql) Save(ctx context.Context, rule rule.Rule) (uuid.UUID, error) {
 
 	model := ruleToModel(rule)
 
-	row := b.db.QueryRowContext(ctx, query, model.ID, model.Name, model.Transactions, model.Rollback, model.Transforms, model.Configs)
+	row := p.db.QueryRowContext(ctx, query, model.ID, model.Name, model.Transactions, model.Rollback, model.Transforms, model.Configs)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	if err != nil {
@@ -104,13 +107,13 @@ func (b Psql) Save(ctx context.Context, rule rule.Rule) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (b Psql) FindAll(ctx context.Context) ([]rule.Rule, error) {
+func (p Psql) FindAll(ctx context.Context) ([]rule.Rule, error) {
 	const query = `
 		SELECT id, name, transactions, rollback, transforms, configs
 		FROM rules
 	`
 
-	rows, err := b.db.QueryContext(ctx, query)
+	rows, err := p.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find all rules: %w", err)
 	}
@@ -128,4 +131,104 @@ func (b Psql) FindAll(ctx context.Context) ([]rule.Rule, error) {
 	}
 
 	return rules, nil
+}
+
+type (
+	TransactionModel struct {
+		TransactionID  uuid.UUID
+		OrchestratorID uuid.UUID
+		Data           []byte
+		Headers        []byte
+		Status         string
+		Error          string
+		ConfigRules    []byte
+	}
+)
+
+func (t TransactionModel) transaction() orchestrator.Transaction {
+	var data any
+	var headers map[string][]string
+	var configRules []rule.HTTPConfig
+	_ = json.Unmarshal(t.Data, &data)
+	_ = json.Unmarshal(t.Headers, &headers)
+	_ = json.Unmarshal(t.ConfigRules, &configRules)
+	return orchestrator.Transaction{
+		TransactionID:  t.TransactionID,
+		OrchestratorID: t.OrchestratorID,
+		Data:           data,
+		Headers:        headers,
+		ConfigRules:    configRules,
+	}
+}
+
+func ToTransactionModel(txData orchestrator.Transaction, status string, errorMessage string) TransactionModel {
+	data, _ := json.Marshal(txData.Data)
+	headers, _ := json.Marshal(txData.Headers)
+	configRules, _ := json.Marshal(txData.ConfigRules)
+	return TransactionModel{
+		TransactionID:  txData.TransactionID,
+		OrchestratorID: txData.OrchestratorID,
+		Data:           data,
+		Headers:        headers,
+		Status:         status,
+		Error:          errorMessage,
+		ConfigRules:    configRules,
+	}
+}
+
+const StatusFailedExecuteRollback = "failed_execute_rollback"
+
+func (p Psql) SaveTransaction(ctx context.Context, txData orchestrator.Transaction, errorMessage string) error {
+	const query = `
+		INSERT INTO transactions (rule_id, transaction_id, data, headers, status, error, config_rules, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+	`
+
+	model := ToTransactionModel(txData, StatusFailedExecuteRollback, errorMessage)
+	_, err := p.db.ExecContext(ctx, query, model.OrchestratorID, model.TransactionID, model.Data, model.Headers, model.Status, model.Error)
+	if err != nil {
+		return fmt.Errorf("failed to save transaction: %w", err)
+	}
+	return nil
+
+}
+
+const StatusRollbackExecuted = "rollback_executed"
+
+func (p Psql) UpdateTransaction(ctx context.Context, txID uuid.UUID) error {
+	const query = `
+		UPDATE transactions
+		SET status = $1, updated_at = NOW()
+		WHERE transaction_id = $2
+	`
+	_, err := p.db.ExecContext(ctx, query, StatusRollbackExecuted, txID)
+	if err != nil {
+		return fmt.Errorf("failed to update transaction: %w", err)
+	}
+	return nil
+}
+
+func (p Psql) GetTransactions(ctx context.Context, status string) ([]orchestrator.Transaction, error) {
+	const query = `
+		SELECT transaction_id, data, headers, config_rules
+		FROM transactions
+		WHERE status = $1
+	`
+	rows, err := p.db.QueryContext(ctx, query, status)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []orchestrator.Transaction
+	for rows.Next() {
+		var tx TransactionModel
+		err := rows.Scan(&tx.TransactionID, &tx.Data, &tx.Headers, &tx.ConfigRules)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan transaction: %w", err)
+		}
+		transactions = append(transactions, tx.transaction())
+	}
+
+	return transactions, nil
 }

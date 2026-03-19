@@ -14,7 +14,7 @@ import (
 )
 
 type HttpClientImpl interface {
-	orchestrator.Queue
+	orchestrator.Publisher
 }
 
 var _ HttpClientImpl = &HttpClient{}

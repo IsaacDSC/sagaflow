@@ -1,9 +1,16 @@
+github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=
+github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
 github.com/IsaacDSC/clienthttp v1.0.1 h1:FIptKZ1ZjJrLGn0cB9S8nzUBErE2eq2QaBzUiJOmBPI=
 github.com/IsaacDSC/clienthttp v1.0.1/go.mod h1:TFzAThW6KUDOugso4Fq4GQdtpOhFRL+ByH3YMFaVhbM=
 github.com/IsaacDSC/migrations v0.0.2 h1:oz06Sr30XXNwNQ7zDvjWOe+WtCADjwup5VFwnK202NQ=
 github.com/IsaacDSC/migrations v0.0.2/go.mod h1:E2r1syujfroBEXb/xR1eYWTjqFsl5nXH8mEaIgAlD1A=
+github.com/IsaacDSC/migrations v0.0.3 h1:OiFn574bHxE4o8Pe2NlMiy7SdbjhbLnlXZOABOHUuNc=
+github.com/IsaacDSC/migrations v0.0.3/go.mod h1:E2r1syujfroBEXb/xR1eYWTjqFsl5nXH8mEaIgAlD1A=
+github.com/IsaacDSC/migrations v0.0.4 h1:DvEupnDTqcvifLwEFhsI7UdeDu0T3GJqEqJ8MtI3G38=
+github.com/IsaacDSC/migrations v0.0.4/go.mod h1:94zXAshGdiM/hF56SwmDre/hlM5/rV3vSFME+oTeFp8=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/kisielk/sqlstruct v0.0.0-20201105191214-5f3e10d3ab46/go.mod h1:yyMNCyc/Ib3bDTKd379tNMpB/7/H5TjM2Y9QJ5THLbE=
 github.com/lib/pq v1.11.2 h1:x6gxUeu39V0BHZiugWe8LXZYZ+Utk7hSJGThs8sdzfs=
 github.com/lib/pq v1.11.2/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 go.uber.org/mock v0.6.0 h1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=

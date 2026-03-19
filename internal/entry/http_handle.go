@@ -13,7 +13,7 @@ import (
 
 type (
 	Orchestrator interface {
-		Execute(ctx context.Context, txInput orchestrator.Input) error
+		Transaction(ctx context.Context, txInput orchestrator.Input) error
 	}
 )
 
@@ -58,15 +58,16 @@ func Handler(o Orchestrator) connector.Handler {
 				}
 			}
 
-			txID := uuid.New().String()
-			req.Header.Add(HeaderTransactionID, txID)
+			txID := uuid.New()
+			req.Header.Add(HeaderTransactionID, txID.String())
 			txInput := orchestrator.Input{
+				TransactionID:  txID,
 				OrchestratorID: ruleID,
 				Data:           data,
 				Headers:        req.Header.Clone(),
 			}
 
-			err = o.Execute(req.Context(), txInput)
+			err = o.Transaction(req.Context(), txInput)
 
 			switch {
 			case errors.Is(err, orchestrator.ErrorRuleNotFound):
@@ -81,8 +82,17 @@ func Handler(o Orchestrator) connector.Handler {
 				return connector.ResponseError{
 					StatusCode: http.StatusFailedDependency,
 					Body: connector.DataErr{
-						Msg:    "Error when transaction rollback, inconsistent state",
-						Action: "you have rollback some transactions with id: " + txID,
+						Msg:    "Error when transaction rollback, temporary inconsistent state",
+						Action: "you have rollback some transactions with id: " + txID.String(),
+					},
+				}
+			case errors.Is(err, orchestrator.ErrorSaveTransaction):
+				// TODO: métrica de erro grave para o sistema
+				return connector.ResponseError{
+					StatusCode: http.StatusInternalServerError,
+					Body: connector.DataErr{
+						Msg:    "Error saving transaction, inconsistent state",
+						Action: "please contact the administrator to fix the problem",
 					},
 				}
 			case errors.Is(err, orchestrator.ErrorTransactionFailed):
@@ -104,7 +114,7 @@ func Handler(o Orchestrator) connector.Handler {
 						Action: "please try again later",
 					},
 					Headers: http.Header{
-						HeaderTransactionID: []string{txID},
+						HeaderTransactionID: []string{txID.String()},
 					},
 				}
 			}
@@ -113,10 +123,10 @@ func Handler(o Orchestrator) connector.Handler {
 				StatusCode: http.StatusAccepted,
 				Body: map[string]string{
 					"message": "Transaction accepted",
-					"tx_id":   txID,
+					"tx_id":   txID.String(),
 				},
 				Headers: http.Header{
-					HeaderTransactionID: []string{txID},
+					HeaderTransactionID: []string{txID.String()},
 					"Content-Type":      []string{"application/json"},
 					"Cache-Control":     []string{"no-cache, no-store"},
 				},

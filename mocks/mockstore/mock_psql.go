@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	orchestrator "github.com/IsaacDSC/sagaflow/internal/orchestrator"
 	rule "github.com/IsaacDSC/sagaflow/internal/rule"
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
@@ -57,6 +58,21 @@ func (mr *MockPsqlImplMockRecorder) FindAll(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAll", reflect.TypeOf((*MockPsqlImpl)(nil).FindAll), ctx)
 }
 
+// GetTransactions mocks base method.
+func (m *MockPsqlImpl) GetTransactions(ctx context.Context, status string) ([]orchestrator.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransactions", ctx, status)
+	ret0, _ := ret[0].([]orchestrator.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactions indicates an expected call of GetTransactions.
+func (mr *MockPsqlImplMockRecorder) GetTransactions(ctx, status any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactions", reflect.TypeOf((*MockPsqlImpl)(nil).GetTransactions), ctx, status)
+}
+
 // Save mocks base method.
 func (m *MockPsqlImpl) Save(ctx context.Context, arg1 rule.Rule) (uuid.UUID, error) {
 	m.ctrl.T.Helper()
@@ -70,4 +86,32 @@ func (m *MockPsqlImpl) Save(ctx context.Context, arg1 rule.Rule) (uuid.UUID, err
 func (mr *MockPsqlImplMockRecorder) Save(ctx, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockPsqlImpl)(nil).Save), ctx, arg1)
+}
+
+// SaveTransaction mocks base method.
+func (m *MockPsqlImpl) SaveTransaction(ctx context.Context, txData orchestrator.Transaction, errorMessage string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveTransaction", ctx, txData, errorMessage)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveTransaction indicates an expected call of SaveTransaction.
+func (mr *MockPsqlImplMockRecorder) SaveTransaction(ctx, txData, errorMessage any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveTransaction", reflect.TypeOf((*MockPsqlImpl)(nil).SaveTransaction), ctx, txData, errorMessage)
+}
+
+// UpdateTransaction mocks base method.
+func (m *MockPsqlImpl) UpdateTransaction(ctx context.Context, txID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTransaction", ctx, txID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTransaction indicates an expected call of UpdateTransaction.
+func (mr *MockPsqlImplMockRecorder) UpdateTransaction(ctx, txID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTransaction", reflect.TypeOf((*MockPsqlImpl)(nil).UpdateTransaction), ctx, txID)
 }

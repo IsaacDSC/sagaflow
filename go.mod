@@ -9,4 +9,6 @@ require (
 	go.uber.org/mock v0.6.0
 )
 
-require github.com/IsaacDSC/migrations v0.0.2
+require github.com/IsaacDSC/migrations v0.0.4
+
+require github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect

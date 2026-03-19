@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -51,7 +52,10 @@ func main() {
 	}
 
 	gate := nofifygate.NewHttpClient()
-	orchestratorService := orchestrator.New(memStore, gate)
+	transactionParallel := orchestrator.NewTransactionParallel(memStore, gate)
+	transactionNonParallel := orchestrator.NewTransactionNonParallel(memStore, gate)
+	rollbackParallel := orchestrator.NewRollbackParallel(psqlStore, gate)
+	orchestratorService := orchestrator.New(memStore, psqlStore, transactionParallel, transactionNonParallel, rollbackParallel)
 
 	handlers := []connector.Handler{
 		health.Handler(),
@@ -108,4 +112,36 @@ func loadMemRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.
 	}
 
 	return nil
+}
+
+func rollbackTransactions(ctx context.Context, psqlStore store.PsqlImpl, orchestratorService orchestrator.Orchestrator) {
+	ticker := time.NewTicker(1 * time.Minute)
+	logger.Info(ctx, "starting rollback transactions", "interval", time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+			transactions, err := psqlStore.GetTransactions(ctx, store.StatusFailedExecuteRollback)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+
+			if err != nil {
+				logger.Error(ctx, "failed to get transactions", "error", err)
+				continue
+			}
+
+			for _, transaction := range transactions {
+				if err := orchestratorService.Rollback(ctx, transaction); err != nil {
+					logger.Error(ctx, "failed to rollback transaction", "error", err)
+					continue
+				}
+			}
+
+			logger.Debug(ctx, "rolling back transactions", "interval", time.Minute)
+
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		}
+	}
 }
