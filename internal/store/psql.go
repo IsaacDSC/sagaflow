@@ -181,11 +181,11 @@ const StatusFailedExecuteRollback = "failed_execute_rollback"
 func (p Psql) SaveTransaction(ctx context.Context, txData orchestrator.Transaction, errorMessage string) error {
 	const query = `
 		INSERT INTO transactions (rule_id, transaction_id, data, headers, status, error, config_rules, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 	`
 
 	model := ToTransactionModel(txData, StatusFailedExecuteRollback, errorMessage)
-	_, err := p.db.ExecContext(ctx, query, model.OrchestratorID, model.TransactionID, model.Data, model.Headers, model.Status, model.Error)
+	_, err := p.db.ExecContext(ctx, query, model.OrchestratorID, model.TransactionID, model.Data, model.Headers, model.Status, model.Error, model.ConfigRules)
 	if err != nil {
 		return fmt.Errorf("failed to save transaction: %w", err)
 	}

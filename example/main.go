@@ -23,7 +23,7 @@ func server01() {
 		// 	w.WriteHeader(http.StatusInternalServerError)
 		// 	return
 		// }
-		if counter < 10 {
+		if counter < 30 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte("Too many requests"))
@@ -47,7 +47,7 @@ func server02() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[*] Request received: %s %s, counter: %d\n", r.Method, r.URL.Path, counter)
-		if counter < 10 {
+		if counter < 30 {
 			counter++
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte("Too many requests"))

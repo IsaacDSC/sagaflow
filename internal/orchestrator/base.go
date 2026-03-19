@@ -84,6 +84,8 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 				return err
 			}
 		}
+
+		return nil
 	}
 
 	err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
@@ -97,10 +99,10 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 	return nil
 }
 
-func (o Orchestrator) Rollback(ctx context.Context, transaction Transaction) error {
+func (o Orchestrator) Rollback(ctx context.Context) error {
 	logger.Info(ctx, "starting rollback transactions", "interval", time.Minute)
 
-	transactions, err := o.psqlStore.GetTransactions(ctx, "error_execute_rollback")
+	transactions, err := o.psqlStore.GetTransactions(ctx, "failed_execute_rollback")
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
