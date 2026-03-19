@@ -22,8 +22,8 @@ func TestPsqlImpl_Save_WithMock(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	r := rule.Rule{
-		ID:   id,
-		Name: "psql-rule",
+		ID:           id,
+		Name:         "psql-rule",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 	}
@@ -77,8 +77,8 @@ func TestPsqlImpl_FindAll_WithMock(t *testing.T) {
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 	rules := []rule.Rule{
 		{
-			ID:   id,
-			Name: "rule-one",
+			ID:           id,
+			Name:         "rule-one",
 			Transactions: []rule.HTTPConfig{{Method: "GET", URL: "http://example.com"}},
 			Rollback:     nil,
 		},

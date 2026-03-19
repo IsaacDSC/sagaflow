@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/IsaacDSC/sagaflow/cmd/internal/task"
 	"github.com/IsaacDSC/sagaflow/internal/entry"
 	"github.com/IsaacDSC/sagaflow/internal/health"
 	"github.com/IsaacDSC/sagaflow/internal/nofifygate"
@@ -69,6 +69,7 @@ func main() {
 	}
 
 	go refreshRules(ctx, psqlStore, memStore)
+	go task.FailRollbacks(ctx, psqlStore, orchestratorService)
 
 	logger.Info(ctx, "server is running", "port", 3001)
 	srv := &http.Server{
@@ -112,36 +113,4 @@ func loadMemRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.
 	}
 
 	return nil
-}
-
-func rollbackTransactions(ctx context.Context, psqlStore store.PsqlImpl, orchestratorService orchestrator.Orchestrator) {
-	ticker := time.NewTicker(1 * time.Minute)
-	logger.Info(ctx, "starting rollback transactions", "interval", time.Minute)
-	for {
-		select {
-		case <-ticker.C:
-			transactions, err := psqlStore.GetTransactions(ctx, store.StatusFailedExecuteRollback)
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-
-			if err != nil {
-				logger.Error(ctx, "failed to get transactions", "error", err)
-				continue
-			}
-
-			for _, transaction := range transactions {
-				if err := orchestratorService.Rollback(ctx, transaction); err != nil {
-					logger.Error(ctx, "failed to rollback transaction", "error", err)
-					continue
-				}
-			}
-
-			logger.Debug(ctx, "rolling back transactions", "interval", time.Minute)
-
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		}
-	}
 }

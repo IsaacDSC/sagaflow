@@ -23,15 +23,15 @@ func TestHandler(t *testing.T) {
 	validBodyBytes, _ := json.Marshal(validBody)
 
 	tests := []struct {
-		name            string
-		pathID          string
-		body            []byte
-		setupMock       func(*mockentry.MockOrchestrator)
-		wantStatusCode  int
-		wantBody        connector.DataErr
+		name             string
+		pathID           string
+		body             []byte
+		setupMock        func(*mockentry.MockOrchestrator)
+		wantStatusCode   int
+		wantBody         connector.DataErr
 		wantActionPrefix string
-		wantOK          bool
-		wantOKBody      map[string]string
+		wantOK           bool
+		wantOKBody       map[string]string
 	}{
 		{
 			name:   "error parsing ID",

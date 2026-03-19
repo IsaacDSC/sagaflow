@@ -82,20 +82,20 @@ func (f fakeRollbackUseCase) Execute(ctx context.Context, transactions []rule.HT
 
 func TestParallel(t *testing.T) {
 	tests := []struct {
-		name           string
-		txParallelErr  error
+		name             string
+		txParallelErr    error
 		txNonParallelErr error
-		rollbackErr    error
-		expectRollback bool
-		wantErr        error
+		rollbackErr      error
+		expectRollback   bool
+		wantErr          error
 	}{
 		{
-			name:            "Success",
-			txParallelErr:   nil,
+			name:             "Success",
+			txParallelErr:    nil,
 			txNonParallelErr: nil,
-			rollbackErr:     nil,
-			expectRollback:  false,
-			wantErr:         nil,
+			rollbackErr:      nil,
+			expectRollback:   false,
+			wantErr:          nil,
 		},
 		{
 			name:             "Error on transaction with rollback",
@@ -192,28 +192,28 @@ func TestParallel(t *testing.T) {
 
 func TestNonParallel(t *testing.T) {
 	tests := []struct {
-		name              string
+		name             string
 		txNonParallelErr error
 		rollbackErr      error
 		expectRollback   bool
 		wantErr          error
 	}{
 		{
-			name:              "Success",
+			name:             "Success",
 			txNonParallelErr: nil,
 			rollbackErr:      nil,
 			expectRollback:   false,
 			wantErr:          nil,
 		},
 		{
-			name:              "Error on transaction with rollback",
+			name:             "Error on transaction with rollback",
 			txNonParallelErr: fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
 			rollbackErr:      nil,
 			expectRollback:   true,
 			wantErr:          nil,
 		},
 		{
-			name:              "Error on transaction and rollback",
+			name:             "Error on transaction and rollback",
 			txNonParallelErr: fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
 			rollbackErr:      orchestrator.ErrorTransactionRollback,
 			expectRollback:   true,
