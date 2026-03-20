@@ -59,18 +59,18 @@ func (mr *MockPsqlImplMockRecorder) FindAll(ctx any) *gomock.Call {
 }
 
 // GetTransactions mocks base method.
-func (m *MockPsqlImpl) GetTransactions(ctx context.Context, status string) ([]orchestrator.Transaction, error) {
+func (m *MockPsqlImpl) GetTransactions(ctx context.Context, status rule.Status, maxRetry int) ([]orchestrator.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTransactions", ctx, status)
+	ret := m.ctrl.Call(m, "GetTransactions", ctx, status, maxRetry)
 	ret0, _ := ret[0].([]orchestrator.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTransactions indicates an expected call of GetTransactions.
-func (mr *MockPsqlImplMockRecorder) GetTransactions(ctx, status any) *gomock.Call {
+func (mr *MockPsqlImplMockRecorder) GetTransactions(ctx, status, maxRetry any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactions", reflect.TypeOf((*MockPsqlImpl)(nil).GetTransactions), ctx, status)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactions", reflect.TypeOf((*MockPsqlImpl)(nil).GetTransactions), ctx, status, maxRetry)
 }
 
 // Save mocks base method.
@@ -102,16 +102,30 @@ func (mr *MockPsqlImplMockRecorder) SaveTransaction(ctx, txData, errorMessage an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveTransaction", reflect.TypeOf((*MockPsqlImpl)(nil).SaveTransaction), ctx, txData, errorMessage)
 }
 
-// UpdateTransaction mocks base method.
-func (m *MockPsqlImpl) UpdateTransaction(ctx context.Context, txID uuid.UUID) error {
+// UpdateRetries mocks base method.
+func (m *MockPsqlImpl) UpdateRetries(ctx context.Context, txID uuid.UUID, retries int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateTransaction", ctx, txID)
+	ret := m.ctrl.Call(m, "UpdateRetries", ctx, txID, retries)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateTransaction indicates an expected call of UpdateTransaction.
-func (mr *MockPsqlImplMockRecorder) UpdateTransaction(ctx, txID any) *gomock.Call {
+// UpdateRetries indicates an expected call of UpdateRetries.
+func (mr *MockPsqlImplMockRecorder) UpdateRetries(ctx, txID, retries any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTransaction", reflect.TypeOf((*MockPsqlImpl)(nil).UpdateTransaction), ctx, txID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRetries", reflect.TypeOf((*MockPsqlImpl)(nil).UpdateRetries), ctx, txID, retries)
+}
+
+// UpdateTxStatus mocks base method.
+func (m *MockPsqlImpl) UpdateTxStatus(ctx context.Context, txID uuid.UUID, status rule.Status) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTxStatus", ctx, txID, status)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTxStatus indicates an expected call of UpdateTxStatus.
+func (mr *MockPsqlImplMockRecorder) UpdateTxStatus(ctx, txID, status any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTxStatus", reflect.TypeOf((*MockPsqlImpl)(nil).UpdateTxStatus), ctx, txID, status)
 }

@@ -25,4 +25,15 @@ type (
 		Parallel   bool   `json:"parallel" yaml:"parallel"`
 		Sync       bool   `json:"sync" yaml:"sync"`
 	}
+
+	Status string
+)
+
+func (s Status) String() string {
+	return string(s)
+}
+
+const (
+	StatusRollbackExecuted      Status = "rollback_executed"
+	StatusFailedExecuteRollback Status = "failed_execute_rollback"
 )

@@ -87,7 +87,6 @@ func Handler(o Orchestrator) connector.Handler {
 					},
 				}
 			case errors.Is(err, orchestrator.ErrorSaveTransaction):
-				// TODO: métrica de erro grave para o sistema
 				return connector.ResponseError{
 					StatusCode: http.StatusInternalServerError,
 					Body: connector.DataErr{

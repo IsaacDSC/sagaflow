@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/store"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 )
 
 func RefreshRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.MemoryImpl) {
-	ticker := time.NewTicker(1 * time.Minute)
+	conf := cfg.Get()
+	ticker := time.NewTicker(conf.Task.IntervalRefreshRules)
 	logger.Info(ctx, "starting rules refresh", "interval", time.Minute)
 	for {
 		select {

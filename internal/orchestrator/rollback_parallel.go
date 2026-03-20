@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
@@ -18,17 +19,18 @@ type (
 		Data           any
 		Headers        map[string][]string
 		Error          error
+		Retries        int
 		ConfigRules    []rule.HTTPConfig
 	}
 	RollbackParallel struct {
-		psqlStore PsqlStore
+		store Store
 		publisher Publisher
 	}
 )
 
-func NewRollbackParallel(psqlStore PsqlStore, publisher Publisher) *RollbackParallel {
+func NewRollbackParallel(psqlStore Store, publisher Publisher) *RollbackParallel {
 	return &RollbackParallel{
-		psqlStore: psqlStore,
+		store: psqlStore,
 		publisher: publisher,
 	}
 }
@@ -41,13 +43,15 @@ func (r RollbackParallel) Execute(ctx context.Context, rollbackRules []rule.HTTP
 		done = make(chan struct{})
 	)
 
+	rollbackConf := cfg.Get().Rollback
+
 	for _, transactionData := range rollbackRules {
 		wg.Add(1)
 		go func(txData rule.HTTPConfig) {
 			defer wg.Done()
 			err := r.publisher.Send(ctx, txData, payload, rule.Configs{
-				MaxRetry:   3,
-				MaxTimeout: "1m",
+				MaxRetry:   rollbackConf.MaxRetry,
+				MaxTimeout: rollbackConf.MaxTimeout,
 				Parallel:   true,
 				Sync:       false,
 			})
@@ -65,7 +69,7 @@ func (r RollbackParallel) Execute(ctx context.Context, rollbackRules []rule.HTTP
 
 	select {
 	case err := <-errs:
-		if err := r.psqlStore.SaveTransaction(ctx, Transaction{
+		if err := r.store.SaveTransaction(ctx, Transaction{
 			TransactionID:  payload.TransactionID,
 			OrchestratorID: payload.OrchestratorID,
 			Data:           payload.Data,
@@ -73,7 +77,6 @@ func (r RollbackParallel) Execute(ctx context.Context, rollbackRules []rule.HTTP
 			Error:          err,
 			ConfigRules:    rollbackRules,
 		}, err.Error()); err != nil {
-			l.Error("error saving transaction", "error", err, "tag", "Orchestrator.Rollback.parallel")
 			return ErrorSaveTransaction
 		}
 

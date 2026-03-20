@@ -2,10 +2,12 @@ package orchestrator
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"fmt"
+	"sync"
 	"time"
 
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
@@ -24,10 +26,11 @@ type (
 		Find(ctx context.Context, txID uuid.UUID) (rule.Rule, error)
 	}
 
-	PsqlStore interface {
+	Store interface {
 		SaveTransaction(ctx context.Context, txData Transaction, errorMessage string) error
-		GetTransactions(ctx context.Context, status string) ([]Transaction, error)
-		UpdateTransaction(ctx context.Context, txID uuid.UUID) error
+		GetTransactions(ctx context.Context, status rule.Status, maxRetry int) ([]Transaction, error)
+		UpdateTxStatus(ctx context.Context, txID uuid.UUID, status rule.Status) error
+		UpdateRetries(ctx context.Context, txID uuid.UUID, retries int) error
 	}
 
 	Publisher interface {
@@ -45,7 +48,7 @@ type (
 
 	Orchestrator struct {
 		memStore               MemStore
-		psqlStore              PsqlStore
+		store                  Store
 		transactionParallel    TransactionUseCase
 		transactionNonParallel TransactionUseCase
 		rollbackParallel       RollbackUseCase
@@ -60,10 +63,10 @@ type (
 	}
 )
 
-func New(memStore MemStore, psqlStore PsqlStore, transactionParallel TransactionUseCase, transactionNonParallel TransactionUseCase, rollbackParallel RollbackUseCase) *Orchestrator {
+func New(memStore MemStore, psqlStore Store, transactionParallel TransactionUseCase, transactionNonParallel TransactionUseCase, rollbackParallel RollbackUseCase) *Orchestrator {
 	return &Orchestrator{
 		memStore:               memStore,
-		psqlStore:              psqlStore,
+		store:                  psqlStore,
 		transactionParallel:    transactionParallel,
 		transactionNonParallel: transactionNonParallel,
 		rollbackParallel:       rollbackParallel,
@@ -101,33 +104,64 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 
 func (o Orchestrator) Rollback(ctx context.Context) error {
 	logger.Info(ctx, "starting rollback transactions", "interval", time.Minute)
+	rollbackConf := cfg.Get().Rollback
 
-	transactions, err := o.psqlStore.GetTransactions(ctx, "failed_execute_rollback")
-	if errors.Is(err, sql.ErrNoRows) {
+	transactions, err := o.store.GetTransactions(ctx, rule.StatusFailedExecuteRollback, rollbackConf.MaxRetry)
+	if errors.Is(err, ErrorRuleNotFound) {
 		return nil
 	}
 
 	if err != nil {
 		logger.Error(ctx, "failed to get transactions", "error", err)
-		return err
+		return fmt.Errorf("failed to get transactions: %w", err)
 	}
+
+	l := logger.FromContext(ctx)
+	var (
+		wg   sync.WaitGroup
+		errs = sync.Map{}
+	)
 
 	for _, transaction := range transactions {
-		if err := o.rollbackParallel.Execute(ctx, transaction.ConfigRules, Input{
-			TransactionID:  transaction.TransactionID,
-			OrchestratorID: transaction.OrchestratorID,
-			Data:           transaction.Data,
-			Headers:        transaction.Headers,
-		}); err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(transaction Transaction) {
+			defer wg.Done()
+			err := o.rollbackParallel.Execute(ctx, transaction.ConfigRules, Input{
+				TransactionID:  transaction.TransactionID,
+				OrchestratorID: transaction.OrchestratorID,
+				Data:           transaction.Data,
+				Headers:        transaction.Headers,
+			})
 
-		if err := o.psqlStore.UpdateTransaction(ctx, transaction.TransactionID); err != nil {
-			return err
-		}
+			if err != nil {
+				if err := o.store.UpdateRetries(ctx, transaction.TransactionID, transaction.Retries+1); err != nil {
+					l.Error("failed to storage update retries", "error", err)
+					errs.Store(transaction.TransactionID, err)
+				}
+
+				return
+			}
+
+			if err := o.store.UpdateTxStatus(ctx, transaction.TransactionID, rule.StatusRollbackExecuted); err != nil {
+				l.Error("failed to storage update transaction successful status", "error", err)
+				errs.Store(transaction.TransactionID, err)
+			}
+
+		}(transaction)
+
 	}
 
-	logger.Debug(ctx, "rolling back transactions", "interval", time.Minute)
+	wg.Wait()
+
+	var totalErrs int
+	errs.Range(func(transactionID, error any) bool {
+		totalErrs++
+		return true
+	})
+
+	if totalErrs > 0 {
+		return fmt.Errorf("failed to rollback transactions with total errors: %d", totalErrs)
+	}
 
 	return nil
 }

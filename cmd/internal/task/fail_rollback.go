@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 )
 
@@ -12,17 +13,18 @@ type Service interface {
 }
 
 func FailRollbacks(ctx context.Context, service Service) {
-	ticker := time.NewTicker(10 * time.Second)
+	conf := cfg.Get()
+	ticker := time.NewTicker(conf.Task.IntervalRollback)
 	logger.Info(ctx, "starting rollback transactions", "interval", time.Minute)
 	for {
 		select {
 		case <-ticker.C:
+			logger.Debug(ctx, "rolling back transactions", "interval", time.Minute)
+
 			if err := service.Rollback(ctx); err != nil {
-				logger.Error(ctx, "failed to rollback transaction", "error", err)
+				logger.Error(ctx, "failed internal task to rollback transaction", "error", err)
 				continue
 			}
-
-			logger.Debug(ctx, "rolling back transactions", "interval", time.Minute)
 
 		case <-ctx.Done():
 			ticker.Stop()

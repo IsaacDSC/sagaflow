@@ -21,6 +21,7 @@ func init() {
 					headers JSONB NOT NULL,
 					status TEXT NOT NULL,
 					error TEXT,
+					retries INT NOT NULL DEFAULT 0,
 					created_at TIMESTAMP NOT NULL,
 					updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 					CONSTRAINT fk_rule FOREIGN KEY (rule_id) REFERENCES rules (id)
