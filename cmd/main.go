@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
+	"github.com/IsaacDSC/sagaflow/cmd/internal/task"
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/entry"
 	"github.com/IsaacDSC/sagaflow/internal/health"
 	"github.com/IsaacDSC/sagaflow/internal/nofifygate"
@@ -25,12 +25,12 @@ func main() {
 	ctx := context.Background()
 	ctx = logger.WithLogger(ctx, logger.DefaultLogger)
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is not set")
+	if err := cfg.Load(); err != nil {
+		panic(err)
 	}
 
-	db, err := sql.Open("postgres", dbURL)
+	conf := cfg.Get()
+	db, err := sql.Open("postgres", conf.Database.URL)
 	if err != nil {
 		panic(err)
 	}
@@ -46,12 +46,21 @@ func main() {
 	psqlStore := store.NewPsql(db)
 	memStore := store.NewMemory()
 
-	if err := loadMemRules(ctx, psqlStore, memStore); err != nil {
+	if err := task.LoadMemRules(ctx, psqlStore, memStore); err != nil {
 		panic(err)
 	}
 
 	gate := nofifygate.NewHttpClient()
-	orchestratorService := orchestrator.New(memStore, gate)
+	transactionParallel := orchestrator.NewTransactionParallel(memStore, gate)
+	transactionNonParallel := orchestrator.NewTransactionNonParallel(memStore, gate)
+	rollbackParallel := orchestrator.NewRollbackParallel(psqlStore, gate)
+	orchestratorService := orchestrator.New(
+		memStore,
+		psqlStore,
+		transactionParallel,
+		transactionNonParallel,
+		rollbackParallel,
+	)
 
 	handlers := []connector.Handler{
 		health.Handler(),
@@ -64,7 +73,8 @@ func main() {
 		mux.HandleFunc(ch.Path, connector.Adapter(ch.Handler))
 	}
 
-	go refreshRules(ctx, psqlStore, memStore)
+	go task.RefreshRules(ctx, psqlStore, memStore)
+	go task.FailRollbacks(ctx, orchestratorService)
 
 	logger.Info(ctx, "server is running", "port", 3001)
 	srv := &http.Server{
@@ -78,34 +88,4 @@ func main() {
 	}
 
 	log.Fatal(srv.ListenAndServe())
-}
-
-func refreshRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.MemoryImpl) {
-	ticker := time.NewTicker(1 * time.Minute)
-	logger.Info(ctx, "starting rules refresh", "interval", time.Minute)
-	for {
-		select {
-		case <-ticker.C:
-			logger.Debug(ctx, "refreshing rules", "interval", time.Minute)
-			if err := loadMemRules(ctx, psqlStore, memStore); err != nil {
-				logger.Error(ctx, "failed to load memory rules", "error", err)
-			}
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		}
-	}
-}
-
-func loadMemRules(ctx context.Context, psqlStore store.PsqlImpl, memStore store.MemoryImpl) error {
-	rules, err := psqlStore.FindAll(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to find all rules: %w", err)
-	}
-
-	if err := memStore.Refresh(ctx, rules); err != nil {
-		return fmt.Errorf("failed to refresh memory store: %w", err)
-	}
-
-	return nil
 }

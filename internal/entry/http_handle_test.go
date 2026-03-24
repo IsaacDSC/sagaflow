@@ -23,22 +23,22 @@ func TestHandler(t *testing.T) {
 	validBodyBytes, _ := json.Marshal(validBody)
 
 	tests := []struct {
-		name            string
-		pathID          string
-		body            []byte
-		setupMock       func(*mockentry.MockOrchestrator)
-		wantStatusCode  int
-		wantBody        connector.DataErr
+		name             string
+		pathID           string
+		body             []byte
+		setupMock        func(*mockentry.MockOrchestrator)
+		wantStatusCode   int
+		wantBody         connector.DataErr
 		wantActionPrefix string
-		wantOK          bool
-		wantOKBody      map[string]string
+		wantOK           bool
+		wantOKBody       map[string]string
 	}{
 		{
 			name:   "error parsing ID",
 			pathID: "not-a-valid-uuid",
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
-				m.EXPECT().Execute(gomock.Any(), gomock.Any()).Times(0)
+				m.EXPECT().Transaction(gomock.Any(), gomock.Any()).Times(0)
 			},
 			wantStatusCode: http.StatusBadRequest,
 			wantBody: connector.DataErr{
@@ -52,7 +52,7 @@ func TestHandler(t *testing.T) {
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
-					Execute(gomock.Any(), gomock.Any()).
+					Transaction(gomock.Any(), gomock.Any()).
 					Return(orchestrator.ErrorRuleNotFound).
 					Times(1)
 			},
@@ -68,12 +68,12 @@ func TestHandler(t *testing.T) {
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
-					Execute(gomock.Any(), gomock.Any()).
+					Transaction(gomock.Any(), gomock.Any()).
 					Return(orchestrator.ErrorTransactionRollback).
 					Times(1)
 			},
 			wantStatusCode:   http.StatusFailedDependency,
-			wantBody:         connector.DataErr{Msg: "Error when transaction rollback, inconsistent state"},
+			wantBody:         connector.DataErr{Msg: "Error when transaction rollback, temporary inconsistent state"},
 			wantActionPrefix: "you have rollback some transactions with id: ",
 		},
 		{
@@ -82,7 +82,7 @@ func TestHandler(t *testing.T) {
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
-					Execute(gomock.Any(), gomock.Any()).
+					Transaction(gomock.Any(), gomock.Any()).
 					Return(orchestrator.ErrorTransactionFailed).
 					Times(1)
 			},
@@ -98,7 +98,7 @@ func TestHandler(t *testing.T) {
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
-					Execute(gomock.Any(), gomock.Any()).
+					Transaction(gomock.Any(), gomock.Any()).
 					Return(errors.New("internal error")).
 					Times(1)
 			},
@@ -114,10 +114,10 @@ func TestHandler(t *testing.T) {
 			body:   validBodyBytes,
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
-					Execute(gomock.Any(), gomock.Any()).
+					Transaction(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, input orchestrator.Input) error {
 						if input.OrchestratorID != validID {
-							t.Errorf("Execute OrchestratorID = %v, want %v", input.OrchestratorID, validID)
+							t.Errorf("Transaction OrchestratorID = %v, want %v", input.OrchestratorID, validID)
 						}
 						return nil
 					}).

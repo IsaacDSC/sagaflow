@@ -135,4 +135,3 @@ func TestHttpClient_Send_ErrorStatus(t *testing.T) {
 		t.Fatalf("expected error for non-2xx response, got nil")
 	}
 }
-

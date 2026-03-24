@@ -41,16 +41,16 @@ func (m *MockOrchestrator) EXPECT() *MockOrchestratorMockRecorder {
 	return m.recorder
 }
 
-// Execute mocks base method.
-func (m *MockOrchestrator) Execute(ctx context.Context, txInput orchestrator.Input) error {
+// Transaction mocks base method.
+func (m *MockOrchestrator) Transaction(ctx context.Context, txInput orchestrator.Input) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", ctx, txInput)
+	ret := m.ctrl.Call(m, "Transaction", ctx, txInput)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Execute indicates an expected call of Execute.
-func (mr *MockOrchestratorMockRecorder) Execute(ctx, txInput any) *gomock.Call {
+// Transaction indicates an expected call of Transaction.
+func (mr *MockOrchestratorMockRecorder) Transaction(ctx, txInput any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOrchestrator)(nil).Execute), ctx, txInput)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockOrchestrator)(nil).Transaction), ctx, txInput)
 }

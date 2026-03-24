@@ -2,9 +2,12 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/IsaacDSC/sagaflow/internal/orchestrator"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/internal/store"
 	"github.com/IsaacDSC/sagaflow/mocks/mockstore"
@@ -19,8 +22,8 @@ func TestPsqlImpl_Save_WithMock(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	r := rule.Rule{
-		ID:   id,
-		Name: "psql-rule",
+		ID:           id,
+		Name:         "psql-rule",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 	}
@@ -74,8 +77,8 @@ func TestPsqlImpl_FindAll_WithMock(t *testing.T) {
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 	rules := []rule.Rule{
 		{
-			ID:   id,
-			Name: "rule-one",
+			ID:           id,
+			Name:         "rule-one",
 			Transactions: []rule.HTTPConfig{{Method: "GET", URL: "http://example.com"}},
 			Rollback:     nil,
 		},
@@ -112,5 +115,225 @@ func TestPsqlImpl_FindAll_Error_WithMock(t *testing.T) {
 	_, err := impl.FindAll(ctx)
 	if !errors.Is(err, findErr) {
 		t.Errorf("FindAll() err = %v, want %v", err, findErr)
+	}
+}
+
+func TestPsql_SaveTransaction(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	orchID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440010")
+	txID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440011")
+	input := orchestrator.Transaction{
+		TransactionID:  txID,
+		OrchestratorID: orchID,
+		Data:           map[string]string{"key": "value"},
+		Headers:        map[string][]string{"X-Request-Id": {"req-123"}},
+		ConfigRules:    nil,
+		Error:          nil,
+	}
+	errorMsg := "rollback failed"
+
+	dataJSON, _ := json.Marshal(input.Data)
+	headersJSON, _ := json.Marshal(input.Headers)
+	configRulesJSON, _ := json.Marshal(input.ConfigRules)
+
+	mock.ExpectExec("INSERT INTO transactions").
+		WithArgs(orchID, txID, dataJSON, headersJSON, store.StatusFailedExecuteRollback, errorMsg, configRulesJSON).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := store.NewPsql(db)
+	err = p.SaveTransaction(ctx, input, errorMsg)
+	if err != nil {
+		t.Fatalf("SaveTransaction: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_SaveTransaction_Error(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	input := orchestrator.Transaction{
+		TransactionID:  uuid.New(),
+		OrchestratorID: uuid.New(),
+		Data:           nil,
+		Headers:        nil,
+		ConfigRules:    nil,
+		Error:          nil,
+	}
+	dbErr := errors.New("insert failed")
+
+	mock.ExpectExec("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnError(dbErr)
+
+	p := store.NewPsql(db)
+	err = p.SaveTransaction(ctx, input, "err")
+	if err == nil {
+		t.Fatal("SaveTransaction: expected error")
+	}
+	if !errors.Is(err, dbErr) {
+		t.Errorf("SaveTransaction() err = %v, want %v", err, dbErr)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_UpdateTransaction(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	txID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440020")
+
+	mock.ExpectExec("UPDATE transactions").
+		WithArgs(rule.StatusRollbackExecuted, txID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := store.NewPsql(db)
+	err = p.UpdateTxStatus(ctx, txID, rule.StatusRollbackExecuted)
+	if err != nil {
+		t.Fatalf("UpdateTransaction: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_UpdateTransaction_Error(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	txID := uuid.New()
+	dbErr := errors.New("update failed")
+
+	mock.ExpectExec("UPDATE transactions").
+		WithArgs(rule.StatusRollbackExecuted, txID).
+		WillReturnError(dbErr)
+
+	p := store.NewPsql(db)
+	err = p.UpdateTxStatus(ctx, txID, rule.StatusRollbackExecuted)
+	if err == nil {
+		t.Fatal("UpdateTransaction: expected error")
+	}
+	if !errors.Is(err, dbErr) {
+		t.Errorf("UpdateTransaction() err = %v, want %v", err, dbErr)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_GetTransactions(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	txID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440030")
+	dataJSON := []byte(`{"key":"value"}`)
+	headersJSON := []byte(`{"X-Request-Id":["req-1"]}`)
+	configRulesJSON := []byte(`[]`)
+
+	rows := sqlmock.NewRows([]string{"transaction_id", "data", "headers", "config_rules", "retries"}).
+		AddRow(txID, dataJSON, headersJSON, configRulesJSON, 0)
+
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
+		WithArgs(3, rule.StatusFailedExecuteRollback).
+		WillReturnRows(rows)
+
+	p := store.NewPsql(db)
+	got, err := p.GetTransactions(ctx, rule.StatusFailedExecuteRollback, 3)
+	if err != nil {
+		t.Fatalf("GetTransactions: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("GetTransactions() len = %d, want 1", len(got))
+	}
+	if got[0].TransactionID != txID {
+		t.Errorf("GetTransactions()[0].TransactionID = %v, want %v", got[0].TransactionID, txID)
+	}
+	if got[0].Data == nil {
+		t.Error("GetTransactions()[0].Data = nil, want unmarshaled data")
+	}
+	if got[0].Headers == nil {
+		t.Error("GetTransactions()[0].Headers = nil, want unmarshaled headers")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_GetTransactions_Empty(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	rows := sqlmock.NewRows([]string{"transaction_id", "data", "headers", "config_rules", "retries"})
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
+		WithArgs(3, rule.StatusFailedExecuteRollback).
+		WillReturnRows(rows)
+
+	p := store.NewPsql(db)
+	got, err := p.GetTransactions(ctx, rule.StatusFailedExecuteRollback, 3)
+	if err != nil {
+		t.Fatalf("GetTransactions: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("GetTransactions() len = %d, want 0", len(got))
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestPsql_GetTransactions_Error(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	dbErr := errors.New("query failed")
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
+		WithArgs(3, rule.StatusFailedExecuteRollback).
+		WillReturnError(dbErr)
+
+	p := store.NewPsql(db)
+	_, err = p.GetTransactions(ctx, rule.StatusFailedExecuteRollback, 3)
+	if err == nil {
+		t.Fatal("GetTransactions: expected error")
+	}
+	if !errors.Is(err, dbErr) {
+		t.Errorf("GetTransactions() err = %v, want %v", err, dbErr)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
 	}
 }

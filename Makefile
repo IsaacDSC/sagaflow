@@ -45,6 +45,12 @@ test:
 	@echo "Running tests..."
 	$(GOTEST) -v -race ./...
 
+## run: Run the application
+run:
+	@echo "Running application..."
+	$(GOBUILD) -o $(BUILD_DIR)/sagaflow cmd/main.go
+	@$(BUILD_DIR)/sagaflow
+
 ## ci: Run lint, build, and test (same as CI pipeline)
 ci: lint build test security clean
 	@echo "CI pipeline completed successfully"

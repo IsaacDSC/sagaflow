@@ -31,8 +31,8 @@ func TestMemory_Find_NotFound(t *testing.T) {
 	idB := uuid.MustParse("550e8400-e29b-41d4-a716-446655440002")
 
 	r := rule.Rule{
-		ID:   idA,
-		Name: "rule-a",
+		ID:           idA,
+		Name:         "rule-a",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 	}
@@ -51,8 +51,8 @@ func TestMemory_Find_Found(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
 	r := rule.Rule{
-		ID:   id,
-		Name: "my-rule",
+		ID:           id,
+		Name:         "my-rule",
 		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
 		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
 		Configs:      rule.Configs{Parallel: true},
@@ -110,8 +110,8 @@ func TestMemoryImpl_WithMock(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	r := rule.Rule{
-		ID:   id,
-		Name: "mocked-rule",
+		ID:           id,
+		Name:         "mocked-rule",
 		Transactions: []rule.HTTPConfig{{Method: "GET", URL: "http://example.com"}},
 		Rollback:     nil,
 	}
