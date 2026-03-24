@@ -50,6 +50,9 @@ func (t TransactionParallel) Execute(ctx context.Context, transactions []rule.HT
 
 	select {
 	case err := <-errs:
+		if len(errs) == len(transactions) {
+			return nil
+		}
 		return fmt.Errorf("%w: %v", ErrorConsumerTransaction, err)
 	case <-done:
 		return nil

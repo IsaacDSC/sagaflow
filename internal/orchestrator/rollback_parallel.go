@@ -2,8 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"sync"
 
 	"github.com/IsaacDSC/sagaflow/internal/cfg"
@@ -23,24 +21,24 @@ type (
 		ConfigRules    []rule.HTTPConfig
 	}
 	RollbackParallel struct {
-		store Store
+		store     Store
 		publisher Publisher
 	}
 )
 
 func NewRollbackParallel(psqlStore Store, publisher Publisher) *RollbackParallel {
 	return &RollbackParallel{
-		store: psqlStore,
+		store:     psqlStore,
 		publisher: publisher,
 	}
 }
 
 func (r RollbackParallel) Execute(ctx context.Context, rollbackRules []rule.HTTPConfig, payload Input) error {
 	l := logger.FromContext(ctx)
+
 	var (
 		wg   sync.WaitGroup
-		errs = make(chan error, len(rollbackRules))
-		done = make(chan struct{})
+		errs = sync.Map{}
 	)
 
 	rollbackConf := cfg.Get().Rollback
@@ -56,35 +54,23 @@ func (r RollbackParallel) Execute(ctx context.Context, rollbackRules []rule.HTTP
 				Sync:       false,
 			})
 			if err != nil {
-				log.Printf("error on rollback transaction with url %s: %v", txData.URL, err)
-				errs <- err
+				l.Error("error on rollback transaction", "error", err, "tag", "Orchestrator.Rollback.parallel")
+				errs.Store(txData.URL, err)
 			}
 		}(transactionData)
 	}
 
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	wg.Wait()
 
-	select {
-	case err := <-errs:
-		if err := r.store.SaveTransaction(ctx, Transaction{
-			TransactionID:  payload.TransactionID,
-			OrchestratorID: payload.OrchestratorID,
-			Data:           payload.Data,
-			Headers:        payload.Headers,
-			Error:          err,
-			ConfigRules:    rollbackRules,
-		}, err.Error()); err != nil {
-			return ErrorSaveTransaction
-		}
+	var totalErrs int
+	errs.Range(func(transactionID, error any) bool {
+		totalErrs++
+		return true
+	})
 
-		l.Error("error on rollback transaction", "error", err, "tag", "Orchestrator.Rollback.parallel")
-		return fmt.Errorf("%w: %v", ErrorTransactionRollback, err)
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	if totalErrs > 0 {
+		return ErrorTransactionRollback
 	}
+
+	return nil
 }

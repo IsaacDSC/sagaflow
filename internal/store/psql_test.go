@@ -259,7 +259,7 @@ func TestPsql_GetTransactions(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"transaction_id", "data", "headers", "config_rules", "retries"}).
 		AddRow(txID, dataJSON, headersJSON, configRulesJSON, 0)
 
-	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE max_retry < \$1 AND status = \$2;`).
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
 		WithArgs(3, rule.StatusFailedExecuteRollback).
 		WillReturnRows(rows)
 
@@ -295,7 +295,7 @@ func TestPsql_GetTransactions_Empty(t *testing.T) {
 	ctx := context.Background()
 
 	rows := sqlmock.NewRows([]string{"transaction_id", "data", "headers", "config_rules", "retries"})
-	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE max_retry < \$1 AND status = \$2;`).
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
 		WithArgs(3, rule.StatusFailedExecuteRollback).
 		WillReturnRows(rows)
 
@@ -321,7 +321,7 @@ func TestPsql_GetTransactions_Error(t *testing.T) {
 
 	ctx := context.Background()
 	dbErr := errors.New("query failed")
-	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE max_retry < \$1 AND status = \$2;`).
+	mock.ExpectQuery(`SELECT transaction_id, data, headers, config_rules, retries\s+FROM transactions\s+WHERE retries < \$1 AND status = \$2;`).
 		WithArgs(3, rule.StatusFailedExecuteRollback).
 		WillReturnError(dbErr)
 

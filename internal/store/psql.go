@@ -160,6 +160,7 @@ func (t TransactionModel) transaction() orchestrator.Transaction {
 		Data:           data,
 		Headers:        headers,
 		ConfigRules:    configRules,
+		Retries:        t.Retries,
 	}
 }
 
@@ -182,6 +183,7 @@ const StatusFailedExecuteRollback = "failed_execute_rollback"
 
 func (p Psql) SaveTransaction(ctx context.Context, txData orchestrator.Transaction, errorMessage string) error {
 	l := logger.FromContext(ctx)
+
 	const query = `
 		INSERT INTO transactions (rule_id, transaction_id, data, headers, status, error, config_rules, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -229,7 +231,7 @@ func (p Psql) GetTransactions(ctx context.Context, status rule.Status, maxRetry 
 	const query = `
 		SELECT transaction_id, data, headers, config_rules, retries
 		FROM transactions
-		WHERE max_retry < $1 AND status = $2;
+		WHERE retries < $1 AND status = $2;
 		`
 
 	rows, err := p.db.QueryContext(ctx, query, maxRetry, status)

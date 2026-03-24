@@ -6,10 +6,10 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/IsaacDSC/sagaflow/cmd/internal/task"
+	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/entry"
 	"github.com/IsaacDSC/sagaflow/internal/health"
 	"github.com/IsaacDSC/sagaflow/internal/nofifygate"
@@ -25,12 +25,12 @@ func main() {
 	ctx := context.Background()
 	ctx = logger.WithLogger(ctx, logger.DefaultLogger)
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is not set")
+	if err := cfg.Load(); err != nil {
+		panic(err)
 	}
 
-	db, err := sql.Open("postgres", dbURL)
+	conf := cfg.Get()
+	db, err := sql.Open("postgres", conf.Database.URL)
 	if err != nil {
 		panic(err)
 	}

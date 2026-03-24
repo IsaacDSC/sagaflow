@@ -83,19 +83,26 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 		err = o.transactionParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
 		if errors.Is(err, ErrorConsumerTransaction) {
 			err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)
-			if err != nil {
-				return err
-			}
 		}
-
-		return nil
 	}
 
-	err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
-	if errors.Is(err, ErrorConsumerTransaction) {
-		err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)
-		if err != nil {
-			return err
+	if !orchestrator.Configs.Parallel {
+		err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
+		if errors.Is(err, ErrorConsumerTransaction) {
+			err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)
+		}
+	}
+
+	if err != nil {
+		if err := o.store.SaveTransaction(ctx, Transaction{
+			TransactionID:  txInput.TransactionID,
+			OrchestratorID: txInput.OrchestratorID,
+			Data:           txInput.Data,
+			Headers:        txInput.Headers,
+			Error:          err,
+			ConfigRules:    orchestrator.Rollback,
+		}, err.Error()); err != nil {
+			return ErrorSaveTransaction
 		}
 	}
 

@@ -8,7 +8,9 @@ import (
 
 	"github.com/IsaacDSC/sagaflow/internal/orchestrator"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
+	"github.com/IsaacDSC/sagaflow/mocks/mockstore"
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
 )
 
 /*
@@ -48,15 +50,6 @@ var (
 		Configs: rule.Configs{Parallel: false},
 	}
 )
-
-type fakeMemStore struct {
-	rule rule.Rule
-	err  error
-}
-
-func (f fakeMemStore) Find(ctx context.Context, txID uuid.UUID) (rule.Rule, error) {
-	return f.rule, f.err
-}
 
 type fakeTxUseCase struct {
 	exec func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error
@@ -111,13 +104,26 @@ func TestParallel(t *testing.T) {
 			txNonParallelErr: fmt.Errorf("%w: tx failed later", orchestrator.ErrorConsumerTransaction), // should not be reached
 			rollbackErr:      orchestrator.ErrorTransactionRollback,
 			expectRollback:   true,
-			wantErr:          orchestrator.ErrorTransactionRollback,
+			// Transaction() persiste o erro e retorna nil (só retornaria erro se falhasse ao salvar no store).
+			wantErr: nil,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			store := mockstore.NewMockPsqlImpl(ctrl)
+
+			// Transaction() persiste erro somente quando o erro final após rollback não é nil.
+			if tc.rollbackErr != nil {
+				store.EXPECT().
+					SaveTransaction(gomock.Any(), gomock.Any(), tc.rollbackErr.Error()).
+					Return(nil).
+					Times(1)
+			}
 
 			input := orchestrator.Input{
 				OrchestratorID: parallelRule.ID,
@@ -126,7 +132,11 @@ func TestParallel(t *testing.T) {
 				Headers:        map[string][]string{"X-Request-Id": {"req-123"}},
 			}
 
-			memStore := fakeMemStore{rule: parallelRule}
+			memStore := mockstore.NewMockMemoryImpl(ctrl)
+			memStore.EXPECT().
+				Find(gomock.Any(), parallelRule.ID).
+				Return(parallelRule, nil).
+				Times(1)
 
 			txParallel := fakeTxUseCase{
 				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
@@ -162,7 +172,7 @@ func TestParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, nil, txParallel, txNonParallel, rollback)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
 			err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {
@@ -217,13 +227,26 @@ func TestNonParallel(t *testing.T) {
 			txNonParallelErr: fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
 			rollbackErr:      orchestrator.ErrorTransactionRollback,
 			expectRollback:   true,
-			wantErr:          orchestrator.ErrorTransactionRollback,
+			// Transaction() persiste o erro e retorna nil (só retornaria erro se falhasse ao salvar no store).
+			wantErr: nil,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			store := mockstore.NewMockPsqlImpl(ctrl)
+
+			// Transaction() persiste erro somente quando o erro final após rollback não é nil.
+			if tc.rollbackErr != nil {
+				store.EXPECT().
+					SaveTransaction(gomock.Any(), gomock.Any(), tc.rollbackErr.Error()).
+					Return(nil).
+					Times(1)
+			}
 
 			input := orchestrator.Input{
 				OrchestratorID: nonParallelRule.ID,
@@ -232,7 +255,11 @@ func TestNonParallel(t *testing.T) {
 				Headers:        map[string][]string{"X-Request-Id": {"req-123"}},
 			}
 
-			memStore := fakeMemStore{rule: nonParallelRule}
+			memStore := mockstore.NewMockMemoryImpl(ctrl)
+			memStore.EXPECT().
+				Find(gomock.Any(), nonParallelRule.ID).
+				Return(nonParallelRule, nil).
+				Times(1)
 
 			txParallel := fakeTxUseCase{
 				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
@@ -256,7 +283,7 @@ func TestNonParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, nil, txParallel, txNonParallel, rollback)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
 			err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {

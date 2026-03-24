@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Task     Task
 	Rollback Rollback
+	Database Database
 }
 
 type Rollback struct {
@@ -20,6 +21,10 @@ type Rollback struct {
 type Task struct {
 	IntervalRollback     time.Duration `env:"TASK_INTERVAL_ROLLBACK" env-default:"1m"`
 	IntervalRefreshRules time.Duration `env:"TASK_INTERVAL_REFRESH_RULES" env-default:"1m"`
+}
+
+type Database struct {
+	URL string `env:"DATABASE_URL"`
 }
 
 var cfg Config
