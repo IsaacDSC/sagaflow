@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
+	"errors"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/IsaacDSC/sagaflow/cmd/internal/task"
@@ -22,8 +25,10 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	ctx = logger.WithLogger(ctx, logger.DefaultLogger)
+	baseCtx := context.Background()
+	baseCtx = logger.WithLogger(baseCtx, logger.DefaultLogger)
+	bgCtx, signalStop := signal.NotifyContext(baseCtx, syscall.SIGINT, syscall.SIGTERM)
+	defer signalStop()
 
 	if err := cfg.Load(); err != nil {
 		panic(err)
@@ -46,7 +51,7 @@ func main() {
 	psqlStore := store.NewPsql(db)
 	memStore := store.NewMemory()
 
-	if err := task.LoadMemRules(ctx, psqlStore, memStore); err != nil {
+	if err := task.LoadMemRules(bgCtx, psqlStore, memStore); err != nil {
 		panic(err)
 	}
 
@@ -73,19 +78,47 @@ func main() {
 		mux.HandleFunc(ch.Path, connector.Adapter(ch.Handler))
 	}
 
-	go task.RefreshRules(ctx, psqlStore, memStore)
-	go task.FailRollbacks(ctx, orchestratorService)
+	go task.RefreshRules(bgCtx, psqlStore, memStore)
+	go task.FailRollbacks(bgCtx, orchestratorService)
 
-	logger.Info(ctx, "server is running", "port", 3001)
+	logger.Info(baseCtx, "server is running", "port", 3001)
 	srv := &http.Server{
 		Addr:         ":3001",
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 2 * time.Minute,
 		BaseContext: func(l net.Listener) context.Context {
-			return ctx
+			// Do not use bgCtx here: canceling the parent context cancels request.Context() and can
+			// interrupt in-flight work before srv.Shutdown gets a chance to wait.
+			return baseCtx
 		},
 	}
 
-	log.Fatal(srv.ListenAndServe())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.ListenAndServe() }()
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error(baseCtx, "server listen error", "error", err)
+			signalStop()
+			os.Exit(1)
+		}
+		return
+	case <-bgCtx.Done():
+		logger.Info(baseCtx, "shutdown requested")
+	}
+
+	signalStop()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error(baseCtx, "server shutdown failed", "error", err)
+	}
+
+	if err := <-errCh; err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Error(baseCtx, "server stopped with error", "error", err)
+		os.Exit(1)
+	}
 }
