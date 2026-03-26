@@ -1,0 +1,17 @@
+# Git and CI
+.git
+.github
+
+# Local / editor
+.env
+.envrc
+.vscode
+
+# Build artifacts
+bin
+
+# Docs only; keep example/ for Docker example image
+*.md
+
+# Optional local tooling state
+.idea

@@ -104,8 +104,7 @@ func TestParallel(t *testing.T) {
 			txNonParallelErr: fmt.Errorf("%w: tx failed later", orchestrator.ErrorConsumerTransaction), // should not be reached
 			rollbackErr:      orchestrator.ErrorTransactionRollback,
 			expectRollback:   true,
-			// Transaction() persiste o erro e retorna nil (só retornaria erro se falhasse ao salvar no store).
-			wantErr: nil,
+			wantErr:          orchestrator.ErrorTransactionRollback,
 		},
 	}
 
@@ -227,8 +226,7 @@ func TestNonParallel(t *testing.T) {
 			txNonParallelErr: fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
 			rollbackErr:      orchestrator.ErrorTransactionRollback,
 			expectRollback:   true,
-			// Transaction() persiste o erro e retorna nil (só retornaria erro se falhasse ao salvar no store).
-			wantErr: nil,
+			wantErr:          orchestrator.ErrorTransactionRollback,
 		},
 	}
 

@@ -104,6 +104,9 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 		}, err.Error()); err != nil {
 			return ErrorSaveTransaction
 		}
+
+		return ErrorTransactionRollback
+
 	}
 
 	return nil
