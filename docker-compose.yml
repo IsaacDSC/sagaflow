@@ -1,0 +1,74 @@
+# Nothing starts without an explicit profile. Examples:
+#   docker compose --profile db up -d              # PostgreSQL only
+#   docker compose --profile migrate up            # Postgres + migrations (migrate exits when done)
+#   docker compose --profile sagaflow up -d        # Postgres + migrate + API
+#   docker compose --profile example up -d         # mock HTTP servers only (3002/3003)
+# Multiple profiles: repeat the flag (a comma in one --profile does NOT work — it becomes a single name).
+#   docker compose --profile db --profile migrate --profile sagaflow --profile example up -d --build
+#   COMPOSE_PROFILES=db,migrate,sagaflow,example docker compose up -d --build
+#
+# Build a specific image without Compose: docker build --target sagaflow|migrate|example -t name .
+
+name: sagaflow
+
+services:
+  postgres:
+    profiles: [db, migrate, sagaflow]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-idsc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-sagaflow}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  migrate:
+    profiles: [migrate, sagaflow]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    command: ["up"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-idsc}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-sagaflow}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  sagaflow:
+    profiles: [sagaflow]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: sagaflow
+    ports:
+      - "${SAGAFLOW_PORT:-3001}:3001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-idsc}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-sagaflow}?sslmode=disable
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  example:
+    profiles: [example]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: example
+    ports:
+      - "${EXAMPLE_PORT_01:-3002}:3002"
+      - "${EXAMPLE_PORT_02:-3003}:3003"
+
+volumes:
+  postgres_data:
