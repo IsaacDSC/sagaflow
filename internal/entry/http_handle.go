@@ -13,13 +13,19 @@ import (
 
 type (
 	Orchestrator interface {
-		Transaction(ctx context.Context, txInput orchestrator.Input) error
+		Transaction(ctx context.Context, txInput orchestrator.Input) (map[string]orchestrator.DataAggregator, error)
 	}
 )
 
 const (
 	HeaderTransactionID = "x-transaction-id"
 )
+
+type Response struct {
+	Message       string                                 `json:"message"`
+	TransactionID string                                 `json:"transaction_id"`
+	Aggregator    map[string]orchestrator.DataAggregator `json:"aggregator,omitempty"`
+}
 
 func Handler(o Orchestrator) connector.Handler {
 	return connector.Handler{
@@ -67,7 +73,12 @@ func Handler(o Orchestrator) connector.Handler {
 				Headers:        req.Header.Clone(),
 			}
 
-			err = o.Transaction(req.Context(), txInput)
+			// if async
+			// save transaction in database
+			//  response ok with transaction id
+
+			// if sync
+			response, err := o.Transaction(req.Context(), txInput)
 
 			switch {
 			case errors.Is(err, orchestrator.ErrorRuleNotFound):
@@ -120,9 +131,10 @@ func Handler(o Orchestrator) connector.Handler {
 
 			return connector.ResponseOK{
 				StatusCode: http.StatusAccepted,
-				Body: map[string]string{
-					"message": "Transaction accepted",
-					"tx_id":   txID.String(),
+				Body: Response{
+					Message:       "Transaction accepted",
+					TransactionID: txID.String(),
+					Aggregator:    response,
 				},
 				Headers: http.Header{
 					HeaderTransactionID: []string{txID.String()},

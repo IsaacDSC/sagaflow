@@ -18,12 +18,12 @@
  -d @example/put_rule_non_parallel.json
  ```
 
-<!-- 333e8d7b-0997-4f00-9267-ae41622c9225 parallel-->
-<!-- c777f590-95c0-403b-95e6-b27d960a4f6f  non-parallel-->
+<!-- 1c85c903-145e-40b5-8de8-6ea9608ae68f parallel-->
+<!-- 08f74ce1-9751-4e4e-b6b9-c55c640726d1  non-parallel-->
  ### Send transaction
  ```sh
 curl -X POST \
- http://localhost:3001/api/v1/transaction/rule/c777f590-95c0-403b-95e6-b27d960a4f6f \
+ http://localhost:3001/api/v1/transaction/rule/1c85c903-145e-40b5-8de8-6ea9608ae68f \
  -H "Content-Type: application/json" \
  -H "Accept: application/json" \
  -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \

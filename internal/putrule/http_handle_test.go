@@ -52,9 +52,17 @@ func TestHandler_SaveError(t *testing.T) {
 		Times(1)
 
 	body := rule.Rule{
-		Name:         "test-rule",
-		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
-		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
+		Name: "test-rule",
+		Transactions: []rule.HTTPConfig{{
+			ServiceName: "orders",
+			Method:      "POST",
+			URL:         "http://svc/do",
+		}},
+		Rollback: []rule.HTTPConfig{{
+			ServiceName: "orders",
+			Method:      "POST",
+			URL:         "http://svc/undo",
+		}},
 	}
 	raw, _ := json.Marshal(body)
 
@@ -92,9 +100,17 @@ func TestHandler_Success(t *testing.T) {
 		Times(1)
 
 	body := rule.Rule{
-		Name:         "my-saga",
-		Transactions: []rule.HTTPConfig{{Method: "POST", URL: "http://svc/do"}},
-		Rollback:     []rule.HTTPConfig{{Method: "POST", URL: "http://svc/undo"}},
+		Name: "my-saga",
+		Transactions: []rule.HTTPConfig{{
+			ServiceName: "orders",
+			Method:      "POST",
+			URL:         "http://svc/do",
+		}},
+		Rollback: []rule.HTTPConfig{{
+			ServiceName: "orders",
+			Method:      "POST",
+			URL:         "http://svc/undo",
+		}},
 	}
 	raw, _ := json.Marshal(body)
 

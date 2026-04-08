@@ -35,6 +35,7 @@ type (
 
 	Publisher interface {
 		Send(ctx context.Context, httpCfg rule.HTTPConfig, tx Input, conf rule.Configs) error
+		Request(ctx context.Context, httpCfg rule.HTTPConfig, tx Input, conf rule.Configs) (map[string]any, error)
 	}
 )
 
@@ -50,7 +51,7 @@ type (
 		memStore               MemStore
 		store                  Store
 		transactionParallel    TransactionUseCase
-		transactionNonParallel TransactionUseCase
+		transactionNonParallel TransactionAggregatorUseCase
 		rollbackParallel       RollbackUseCase
 	}
 
@@ -58,12 +59,22 @@ type (
 		Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input, conf rule.Configs) error
 	}
 
+	TransactionAggregatorUseCase interface {
+		Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input, conf rule.Configs) (map[string]DataAggregator, error)
+	}
+
 	RollbackUseCase interface {
 		Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input) error
 	}
 )
 
-func New(memStore MemStore, psqlStore Store, transactionParallel TransactionUseCase, transactionNonParallel TransactionUseCase, rollbackParallel RollbackUseCase) *Orchestrator {
+func New(
+	memStore MemStore,
+	psqlStore Store,
+	transactionParallel TransactionUseCase,
+	transactionNonParallel TransactionAggregatorUseCase,
+	rollbackParallel RollbackUseCase,
+) *Orchestrator {
 	return &Orchestrator{
 		memStore:               memStore,
 		store:                  psqlStore,
@@ -73,10 +84,12 @@ func New(memStore MemStore, psqlStore Store, transactionParallel TransactionUseC
 	}
 }
 
-func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
+func (o Orchestrator) Transaction(ctx context.Context, txInput Input) (map[string]DataAggregator, error) {
+	output := make(map[string]DataAggregator)
+
 	orchestrator, err := o.memStore.Find(ctx, txInput.OrchestratorID)
 	if err != nil {
-		return err
+		return output, err
 	}
 
 	if orchestrator.Configs.Parallel {
@@ -87,7 +100,7 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 	}
 
 	if !orchestrator.Configs.Parallel {
-		err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
+		output, err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
 		if errors.Is(err, ErrorConsumerTransaction) {
 			err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)
 		}
@@ -102,14 +115,14 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) error {
 			Error:          err,
 			ConfigRules:    orchestrator.Rollback,
 		}, err.Error()); err != nil {
-			return ErrorSaveTransaction
+			return output, ErrorSaveTransaction
 		}
 
-		return ErrorTransactionRollback
+		return output, ErrorTransactionRollback
 
 	}
 
-	return nil
+	return output, nil
 }
 
 func (o Orchestrator) Rollback(ctx context.Context) error {

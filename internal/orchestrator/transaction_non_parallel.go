@@ -22,16 +22,33 @@ func NewTransactionNonParallel(memStore MemStore, publisher Publisher) *Transact
 	}
 }
 
-func (t TransactionNonParallel) Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input, conf rule.Configs) error {
+type DataAggregator struct {
+	Data  any   `json:"data"`
+	Error error `json:"error,omitempty"`
+}
+
+func (t TransactionNonParallel) Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input, conf rule.Configs) (map[string]DataAggregator, error) {
 	l := logger.FromContext(ctx)
 
+	aggregator := make(map[string]DataAggregator)
+	aggregator["sagaflow"] = DataAggregator{
+		Data:  payload.Data,
+		Error: nil,
+	}
+
 	for _, transactionData := range transactions {
-		err := t.publisher.Send(ctx, transactionData, payload, conf)
+		resp, err := t.publisher.Request(ctx, transactionData, payload, conf)
+
+		aggregator[transactionData.ServiceName] = DataAggregator{
+			Data:  resp,
+			Error: err,
+		}
+
 		if err != nil {
 			l.Error("error on consumer transaction", "error", err, "tag", "TransactionNonParallel.Execute")
-			return fmt.Errorf("%w: %v", ErrorConsumerTransaction, err)
+			return aggregator, fmt.Errorf("%w: %v", ErrorConsumerTransaction, err)
 		}
 	}
 
-	return nil
+	return aggregator, nil
 }

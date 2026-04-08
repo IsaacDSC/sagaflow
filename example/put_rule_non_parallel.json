@@ -2,27 +2,26 @@
    "name": "my-rule-non-parallel",
    "transactions": [
       {
+         "service_name": "order",
          "url": "http://localhost:3002/order",
          "method": "POST"
       },
       {
+         "service_name": "payment",
          "url": "http://localhost:3003/payment",
          "method": "POST"
       }
    ],
    "rollback": [
       {
+         "service_name": "order",
          "url": "http://localhost:3002/rollback",
          "method": "DELETE"
       },
       {
+         "service_name": "payment",
          "url": "http://localhost:3003/rollback",
          "method": "DELETE"
-      }
-   ],
-   "transforms": [
-      {
-         "url": "http://localhost:3002/transform-payload"
       }
    ],
    "configs": {

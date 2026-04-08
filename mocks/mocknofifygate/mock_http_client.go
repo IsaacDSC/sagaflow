@@ -42,6 +42,21 @@ func (m *MockHttpClientImpl) EXPECT() *MockHttpClientImplMockRecorder {
 	return m.recorder
 }
 
+// Request mocks base method.
+func (m *MockHttpClientImpl) Request(ctx context.Context, httpCfg rule.HTTPConfig, tx orchestrator.Input, conf rule.Configs) (map[string]any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Request", ctx, httpCfg, tx, conf)
+	ret0, _ := ret[0].(map[string]any)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Request indicates an expected call of Request.
+func (mr *MockHttpClientImplMockRecorder) Request(ctx, httpCfg, tx, conf any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockHttpClientImpl)(nil).Request), ctx, httpCfg, tx, conf)
+}
+
 // Send mocks base method.
 func (m *MockHttpClientImpl) Send(ctx context.Context, httpCfg rule.HTTPConfig, tx orchestrator.Input, conf rule.Configs) error {
 	m.ctrl.T.Helper()

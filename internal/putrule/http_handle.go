@@ -32,8 +32,18 @@ func Handler(s Store) connector.Handler {
 				}
 			}
 
+			if err := rl.Validate(); err != nil {
+				return connector.ResponseError{
+					StatusCode: http.StatusBadRequest,
+					Body: connector.DataErr{
+						Msg:    err.Error(),
+						Action: "please check the request body",
+					},
+				}
+			}
+
 			rl.ID = uuid.New()
-			id, err := s.Save(req.Context(), rl)
+			ruleID, err := s.Save(req.Context(), rl)
 			if err != nil {
 				logger.Error(req.Context(), "error creating rule", "error", err)
 				return connector.ResponseError{
@@ -45,7 +55,7 @@ func Handler(s Store) connector.Handler {
 				}
 			}
 
-			rl.ID = id
+			rl.ID = ruleID
 
 			return connector.ResponseOK{
 				StatusCode: http.StatusOK,

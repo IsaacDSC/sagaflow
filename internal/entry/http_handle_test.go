@@ -31,7 +31,7 @@ func TestHandler(t *testing.T) {
 		wantBody         connector.DataErr
 		wantActionPrefix string
 		wantOK           bool
-		wantOKBody       map[string]string
+		wantMessage      string
 	}{
 		{
 			name:   "error parsing ID",
@@ -53,7 +53,7 @@ func TestHandler(t *testing.T) {
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
 					Transaction(gomock.Any(), gomock.Any()).
-					Return(orchestrator.ErrorRuleNotFound).
+					Return(nil, orchestrator.ErrorRuleNotFound).
 					Times(1)
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -69,7 +69,7 @@ func TestHandler(t *testing.T) {
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
 					Transaction(gomock.Any(), gomock.Any()).
-					Return(orchestrator.ErrorTransactionRollback).
+					Return(nil, orchestrator.ErrorTransactionRollback).
 					Times(1)
 			},
 			wantStatusCode:   http.StatusFailedDependency,
@@ -83,7 +83,7 @@ func TestHandler(t *testing.T) {
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
 					Transaction(gomock.Any(), gomock.Any()).
-					Return(orchestrator.ErrorTransactionFailed).
+					Return(nil, orchestrator.ErrorTransactionFailed).
 					Times(1)
 			},
 			wantStatusCode: http.StatusFailedDependency,
@@ -99,7 +99,7 @@ func TestHandler(t *testing.T) {
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
 					Transaction(gomock.Any(), gomock.Any()).
-					Return(errors.New("internal error")).
+					Return(nil, errors.New("internal error")).
 					Times(1)
 			},
 			wantStatusCode: http.StatusInternalServerError,
@@ -115,16 +115,16 @@ func TestHandler(t *testing.T) {
 			setupMock: func(m *mockentry.MockOrchestrator) {
 				m.EXPECT().
 					Transaction(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, input orchestrator.Input) error {
+					DoAndReturn(func(ctx context.Context, input orchestrator.Input) (map[string]orchestrator.DataAggregator, error) {
 						if input.OrchestratorID != validID {
 							t.Errorf("Transaction OrchestratorID = %v, want %v", input.OrchestratorID, validID)
 						}
-						return nil
+						return map[string]orchestrator.DataAggregator{"svc": {Data: "ok"}}, nil
 					}).
 					Times(1)
 			},
-			wantOK:     true,
-			wantOKBody: map[string]string{"message": "Transaction accepted"},
+			wantOK:      true,
+			wantMessage: "Transaction accepted",
 		},
 	}
 
@@ -145,15 +145,18 @@ func TestHandler(t *testing.T) {
 				if resp.Code() != http.StatusAccepted {
 					t.Errorf("StatusCode = %d, want %d", resp.Code(), http.StatusAccepted)
 				}
-				data, ok := resp.Data().(map[string]string)
+				data, ok := resp.Data().(entry.Response)
 				if !ok {
-					t.Fatalf("Body type = %T, want map[string]string", resp.Data())
+					t.Fatalf("Body type = %T, want entry.Response", resp.Data())
 				}
-				if data["message"] != tt.wantOKBody["message"] {
-					t.Errorf("Body.message = %q, want %q", data["message"], tt.wantOKBody["message"])
+				if data.Message != tt.wantMessage {
+					t.Errorf("Body.Message = %q, want %q", data.Message, tt.wantMessage)
 				}
-				if data["tx_id"] == "" {
-					t.Error("Body.tx_id should not be empty")
+				if data.TransactionID == "" {
+					t.Error("Body.TransactionID should not be empty")
+				}
+				if data.Aggregator["svc"].Data != "ok" {
+					t.Errorf("Body.Aggregator[svc].Data = %v, want %q", data.Aggregator["svc"].Data, "ok")
 				}
 				return
 			}

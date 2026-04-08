@@ -42,11 +42,12 @@ func (m *MockOrchestrator) EXPECT() *MockOrchestratorMockRecorder {
 }
 
 // Transaction mocks base method.
-func (m *MockOrchestrator) Transaction(ctx context.Context, txInput orchestrator.Input) error {
+func (m *MockOrchestrator) Transaction(ctx context.Context, txInput orchestrator.Input) (map[string]orchestrator.DataAggregator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Transaction", ctx, txInput)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(map[string]orchestrator.DataAggregator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Transaction indicates an expected call of Transaction.
