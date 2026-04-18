@@ -1,0 +1,33 @@
+{
+   "name": "my-rule-async",
+   "transactions": [
+      {
+         "service_name": "order",
+         "url": "http://consumer:3333/order",
+         "method": "POST"
+      },
+      {
+         "service_name": "payment",
+         "url": "http://consumer:3333/payment",
+         "method": "POST"
+      }
+   ],
+   "rollback": [
+      {
+         "service_name": "order",
+         "url": "http://consumer:3333/rollback",
+         "method": "DELETE"
+      },
+      {
+         "service_name": "payment",
+         "url": "http://consumer:3333/rollback",
+         "method": "DELETE"
+      }
+   ],
+   "configs": {
+      "max_retry": 3,
+      "max_timeout": "1m",
+      "parallel": false,
+      "sync": false
+   }
+}

@@ -15,15 +15,26 @@
  -H "Content-Type: application/json" \
  -H "Accept: application/json" \
  -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \
- -d @example/put_rule_non_parallel.json
+ -d @example/put_rule_non_paralle`.json
  ```
 
+```sh
+ curl -X PUT \
+ http://localhost:3001/api/v1/rule \
+ -H "Content-Type: application/json" \
+ -H "Accept: application/json" \
+ -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \
+ -d @example/put_rule_async.json
+```
+
+
+<!-- fe1fb22a-5826-4acd-ab25-c4a49cefd379 async -->
 <!-- 1c85c903-145e-40b5-8de8-6ea9608ae68f parallel-->
 <!-- 08f74ce1-9751-4e4e-b6b9-c55c640726d1  non-parallel-->
  ### Send transaction
  ```sh
 curl -X POST \
- http://localhost:3001/api/v1/transaction/rule/1c85c903-145e-40b5-8de8-6ea9608ae68f \
+ http://localhost:3001/api/v1/transaction/rule/fe1fb22a-5826-4acd-ab25-c4a49cefd379 \
  -H "Content-Type: application/json" \
  -H "Accept: application/json" \
  -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \

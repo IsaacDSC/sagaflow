@@ -11,6 +11,15 @@ type Config struct {
 	Task     Task
 	Rollback Rollback
 	Database Database
+	Gqueue   Gqueue
+}
+
+// Gqueue holds optional settings for async saga steps via the gqueue pub/sub HTTP API.
+type Gqueue struct {
+	BaseURL              string `env:"GQUEUE_BASE_URL" env-required:"true"`
+	BasicUser            string `env:"GQUEUE_BASIC_USER"`
+	BasicPassword        string `env:"GQUEUE_BASIC_PASSWORD"`
+	PublisherServiceName string `env:"GQUEUE_PUBLISHER_SERVICE_NAME" env-default:"sagaflow"`
 }
 
 type Rollback struct {

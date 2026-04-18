@@ -8,14 +8,13 @@ import (
 	"fmt"
 
 	"github.com/IsaacDSC/sagaflow/internal/orchestrator"
-	"github.com/IsaacDSC/sagaflow/internal/putrule"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
 )
 
 type PsqlImpl interface {
-	putrule.Store
+	orchestrator.RuleStore
 	orchestrator.Store
 	FindAll(ctx context.Context) ([]rule.Rule, error)
 }
@@ -105,7 +104,7 @@ func (p Psql) Save(ctx context.Context, rule rule.Rule) (uuid.UUID, error) {
 func (p Psql) FindAll(ctx context.Context) ([]rule.Rule, error) {
 	const query = `
 		SELECT id, name, transactions, rollback, configs
-		FROM rules
+		FROM rules;
 	`
 
 	rows, err := p.db.QueryContext(ctx, query)

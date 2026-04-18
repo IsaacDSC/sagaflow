@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/IsaacDSC/sagaflow/internal/cfg"
 	"github.com/IsaacDSC/sagaflow/internal/rule"
+	"github.com/IsaacDSC/sagaflow/pkg/gqueue"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -19,11 +22,22 @@ var (
 	ErrorTransactionRollback = errors.New("error when transaction rollback") // when the transaction is rollback with error
 	ErrorTransactionFailed   = errors.New("error transaction failed")        // when the transaction is not successful
 	ErrorSaveTransaction     = errors.New("error saving transaction")        // when the transaction with rollback error is not saved in the database
+	// ErrorAsyncNotConfigured is returned when the rule uses async mode (Configs.Sync == false) but no gqueue client was wired (see TransactionAsync / pkg/gqueue).
+	ErrorAsyncNotConfigured = errors.New("async transaction requires gqueue client; set GQUEUE_BASE_URL")
+	// ErrorSaveRule wraps persistence failures from UpsertRule (rule store Save).
+	ErrorSaveRule = errors.New("save rule")
+	// ErrorGqueueUpsertRule wraps gqueue UpsertEventConsumer failures from UpsertRule.
+	ErrorGqueueUpsertRule = errors.New("gqueue upsert rule")
 )
 
 type (
 	MemStore interface {
 		Find(ctx context.Context, txID uuid.UUID) (rule.Rule, error)
+	}
+
+	// RuleStore persists saga rules (e.g. PostgreSQL via store.Psql).
+	RuleStore interface {
+		Save(ctx context.Context, r rule.Rule) (uuid.UUID, error)
 	}
 
 	Store interface {
@@ -48,10 +62,15 @@ type (
 	}
 
 	Orchestrator struct {
-		memStore               MemStore
-		store                  Store
+		store     Store
+		gqueueAPI gqueue.API
+		// stores
+		memStore  MemStore
+		ruleStore RuleStore
+		// use cases
 		transactionParallel    TransactionUseCase
 		transactionNonParallel TransactionAggregatorUseCase
+		transactionAsync       TransactionAsyncUseCase
 		rollbackParallel       RollbackUseCase
 	}
 
@@ -66,6 +85,11 @@ type (
 	RollbackUseCase interface {
 		Execute(ctx context.Context, transactions []rule.HTTPConfig, payload Input) error
 	}
+
+	// TransactionAsyncUseCase publishes saga steps to gqueue when rule.Configs.Sync is false.
+	TransactionAsyncUseCase interface {
+		Execute(ctx context.Context, serviceName string, payload Input, conf rule.Configs) error
+	}
 )
 
 func New(
@@ -73,15 +97,103 @@ func New(
 	psqlStore Store,
 	transactionParallel TransactionUseCase,
 	transactionNonParallel TransactionAggregatorUseCase,
+	transactionAsync TransactionAsyncUseCase,
 	rollbackParallel RollbackUseCase,
+	gqueueAPI gqueue.API,
+	ruleStore RuleStore,
 ) *Orchestrator {
 	return &Orchestrator{
 		memStore:               memStore,
 		store:                  psqlStore,
 		transactionParallel:    transactionParallel,
 		transactionNonParallel: transactionNonParallel,
+		transactionAsync:       transactionAsync,
 		rollbackParallel:       rollbackParallel,
+		gqueueAPI:              gqueueAPI,
+		ruleStore:              ruleStore,
 	}
+}
+
+// UpsertRule registers async rules in gqueue when needed, then persists the rule.
+func (o Orchestrator) UpsertRule(ctx context.Context, rl rule.Rule) (rule.Rule, error) {
+	if !rl.Configs.Sync {
+		if o.gqueueAPI == nil {
+			return rl, ErrorAsyncNotConfigured
+		}
+		if err := upsertRuleInGqueue(ctx, o.gqueueAPI, rl); err != nil {
+			return rl, fmt.Errorf("%w: %w", ErrorGqueueUpsertRule, err)
+		}
+	}
+	if o.ruleStore == nil {
+		return rl, fmt.Errorf("%w: rule store not configured", ErrorSaveRule)
+	}
+	rl.ID = uuid.New()
+	ruleID, err := o.ruleStore.Save(ctx, rl)
+	if err != nil {
+		return rl, fmt.Errorf("%w: %w", ErrorSaveRule, err)
+	}
+	rl.ID = ruleID
+	return rl, nil
+}
+
+func upsertRuleInGqueue(ctx context.Context, api gqueue.API, rl rule.Rule) error {
+	opt := gqueue.EventOption{
+		WQType:     "low_throughput",
+		MaxRetries: rl.Configs.MaxRetry,
+		Retention:  gqueueRetention(rl.Configs.MaxTimeout),
+	}
+	b := gqueue.NewEventConsumerBuilder(rl.Name).
+		WithEventType("external").
+		WithOption(opt)
+
+	for _, tx := range rl.Transactions {
+		host, path, err := splitConsumerURL(tx.URL)
+		if err != nil {
+			return fmt.Errorf("transaction url %q: %w", tx.URL, err)
+		}
+		cb := gqueue.NewConsumerBuilder().
+			WithServiceName(tx.ServiceName).
+			WithConsumerType("persistent").
+			WithHost(host).
+			WithPath(path)
+		var err2 error
+		b, err2 = b.AddConsumerFromBuilder(cb)
+		if err2 != nil {
+			return err2
+		}
+	}
+
+	input, err := b.Build()
+	if err != nil {
+		return err
+	}
+	return api.UpsertEventConsumer(ctx, input)
+}
+
+func gqueueRetention(maxTimeout string) string {
+	if strings.TrimSpace(maxTimeout) != "" {
+		return maxTimeout
+	}
+	return "168h"
+}
+
+func splitConsumerURL(raw string) (host, path string, err error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", "", err
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", "", fmt.Errorf("url must include scheme and host")
+	}
+	host = u.Scheme + "://" + u.Host
+	path = u.Path
+	if path == "" {
+		path = "/"
+	}
+	if u.RawQuery != "" {
+		path = path + "?" + u.RawQuery
+	}
+	return host, path, nil
 }
 
 func (o Orchestrator) Transaction(ctx context.Context, txInput Input) (map[string]DataAggregator, error) {
@@ -92,14 +204,18 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) (map[strin
 		return output, err
 	}
 
-	if orchestrator.Configs.Parallel {
+	// Async: rule.Configs.Sync == false — saga steps are enqueued via gqueue (POST /api/v1/pubsub), implemented by TransactionAsyncUseCase (*TransactionAsync + pkg/gqueue).
+	if !orchestrator.Configs.Sync {
+		if o.transactionAsync == nil {
+			return output, ErrorAsyncNotConfigured
+		}
+		err = o.transactionAsync.Execute(ctx, orchestrator.Name, txInput, orchestrator.Configs)
+	} else if orchestrator.Configs.Parallel {
 		err = o.transactionParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
 		if errors.Is(err, ErrorConsumerTransaction) {
 			err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)
 		}
-	}
-
-	if !orchestrator.Configs.Parallel {
+	} else {
 		output, err = o.transactionNonParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
 		if errors.Is(err, ErrorConsumerTransaction) {
 			err = o.rollbackParallel.Execute(ctx, orchestrator.Rollback, txInput)

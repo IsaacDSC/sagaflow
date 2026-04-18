@@ -34,7 +34,7 @@ var (
 			{Method: "POST", URL: "http://svc1/undo"},
 			{Method: "POST", URL: "http://svc2/undo"},
 		},
-		Configs: rule.Configs{Parallel: true},
+		Configs: rule.Configs{Parallel: true, Sync: true},
 	}
 	nonParallelRule = rule.Rule{
 		ID:   uuid.MustParse("550e8400-e29b-41d4-a716-446655440002"),
@@ -47,7 +47,7 @@ var (
 			{Method: "POST", URL: "http://svc1/undo"},
 			{Method: "POST", URL: "http://svc2/undo"},
 		},
-		Configs: rule.Configs{Parallel: false},
+		Configs: rule.Configs{Parallel: false, Sync: true},
 	}
 )
 
@@ -175,7 +175,7 @@ func TestParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, nil, rollback, nil, nil)
 			_, err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {
@@ -285,7 +285,7 @@ func TestNonParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, nil, rollback, nil, nil)
 			_, err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {

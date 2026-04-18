@@ -81,6 +81,14 @@ func Handler(o Orchestrator) connector.Handler {
 			response, err := o.Transaction(req.Context(), txInput)
 
 			switch {
+			case errors.Is(err, orchestrator.ErrorAsyncNotConfigured):
+				return connector.ResponseError{
+					StatusCode: http.StatusServiceUnavailable,
+					Body: connector.DataErr{
+						Msg:    "Async mode requires gqueue",
+						Action: "set GQUEUE_BASE_URL (and credentials) on the server",
+					},
+				}
 			case errors.Is(err, orchestrator.ErrorRuleNotFound):
 				return connector.ResponseError{
 					StatusCode: http.StatusNotFound,
