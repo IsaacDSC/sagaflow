@@ -26,7 +26,17 @@ func NewHttpClient() *HttpClient {
 	return &HttpClient{}
 }
 
+func (h *HttpClient) Request(ctx context.Context, httpCfg rule.HTTPConfig, tx orchestrator.Input, conf rule.Configs) (map[string]any, error) {
+	response := make(map[string]any)
+	err := h.call(ctx, httpCfg, tx, &response, conf)
+	return response, err
+}
+
 func (h HttpClient) Send(ctx context.Context, httpCfg rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
+	return h.call(ctx, httpCfg, payload, nil, conf)
+}
+
+func (h HttpClient) call(ctx context.Context, httpCfg rule.HTTPConfig, payload orchestrator.Input, response any, conf rule.Configs) error {
 	var clientOpts []clienthttp.Option
 
 	if conf.MaxTimeout != "" {
@@ -76,9 +86,18 @@ func (h HttpClient) Send(ctx context.Context, httpCfg rule.HTTPConfig, payload o
 		}
 	}
 
-	// path evita barra final que faria a lib montar baseURL + "/" e causar redirect 301/302 → GET
-	_, err = client.Do(ctx, httpCfg.Method, path, body, clienthttp.WithHeaders(headers))
-	return err
+	resp, err := client.Do(ctx, httpCfg.Method, path, body, clienthttp.WithHeaders(headers))
+	if err != nil {
+		return err
+	}
+
+	if response != nil {
+		if err := json.Unmarshal(resp.Body, response); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // splitBaseURLAndPath returns (scheme+host, path) to avoid that clienthttp adds "/" at the end

@@ -17,7 +17,6 @@ func init() {
 					name TEXT NOT NULL UNIQUE,
 					transactions JSONB NOT NULL,
 					rollback JSONB NOT NULL,
-					transforms JSONB NOT NULL,
 					configs JSONB NOT NULL
 				)`
 			_, err := db.Exec(query)

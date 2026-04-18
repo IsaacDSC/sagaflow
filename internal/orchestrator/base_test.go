@@ -34,7 +34,7 @@ var (
 			{Method: "POST", URL: "http://svc1/undo"},
 			{Method: "POST", URL: "http://svc2/undo"},
 		},
-		Configs: rule.Configs{Parallel: true},
+		Configs: rule.Configs{Parallel: true, Sync: true},
 	}
 	nonParallelRule = rule.Rule{
 		ID:   uuid.MustParse("550e8400-e29b-41d4-a716-446655440002"),
@@ -47,7 +47,7 @@ var (
 			{Method: "POST", URL: "http://svc1/undo"},
 			{Method: "POST", URL: "http://svc2/undo"},
 		},
-		Configs: rule.Configs{Parallel: false},
+		Configs: rule.Configs{Parallel: false, Sync: true},
 	}
 )
 
@@ -58,6 +58,17 @@ type fakeTxUseCase struct {
 func (f fakeTxUseCase) Execute(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
 	if f.exec == nil {
 		return nil
+	}
+	return f.exec(ctx, transactions, payload, conf)
+}
+
+type fakeTxAggregatorUseCase struct {
+	exec func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) (map[string]orchestrator.DataAggregator, error)
+}
+
+func (f fakeTxAggregatorUseCase) Execute(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) (map[string]orchestrator.DataAggregator, error) {
+	if f.exec == nil {
+		return nil, nil
 	}
 	return f.exec(ctx, transactions, payload, conf)
 }
@@ -75,36 +86,32 @@ func (f fakeRollbackUseCase) Execute(ctx context.Context, transactions []rule.HT
 
 func TestParallel(t *testing.T) {
 	tests := []struct {
-		name             string
-		txParallelErr    error
-		txNonParallelErr error
-		rollbackErr      error
-		expectRollback   bool
-		wantErr          error
+		name           string
+		txParallelErr  error
+		rollbackErr    error
+		expectRollback bool
+		wantErr        error
 	}{
 		{
-			name:             "Success",
-			txParallelErr:    nil,
-			txNonParallelErr: nil,
-			rollbackErr:      nil,
-			expectRollback:   false,
-			wantErr:          nil,
+			name:           "Success",
+			txParallelErr:  nil,
+			rollbackErr:    nil,
+			expectRollback: false,
+			wantErr:        nil,
 		},
 		{
-			name:             "Error on transaction with rollback",
-			txParallelErr:    fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
-			txNonParallelErr: nil,
-			rollbackErr:      nil,
-			expectRollback:   true,
-			wantErr:          nil,
+			name:           "Error on transaction with rollback",
+			txParallelErr:  fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
+			rollbackErr:    nil,
+			expectRollback: true,
+			wantErr:        nil,
 		},
 		{
-			name:             "Error on transaction and rollback",
-			txParallelErr:    fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
-			txNonParallelErr: fmt.Errorf("%w: tx failed later", orchestrator.ErrorConsumerTransaction), // should not be reached
-			rollbackErr:      orchestrator.ErrorTransactionRollback,
-			expectRollback:   true,
-			wantErr:          orchestrator.ErrorTransactionRollback,
+			name:           "Error on transaction and rollback",
+			txParallelErr:  fmt.Errorf("%w: tx failed", orchestrator.ErrorConsumerTransaction),
+			rollbackErr:    orchestrator.ErrorTransactionRollback,
+			expectRollback: true,
+			wantErr:        orchestrator.ErrorTransactionRollback,
 		},
 	}
 
@@ -152,13 +159,10 @@ func TestParallel(t *testing.T) {
 				},
 			}
 
-			txNonParallel := fakeTxUseCase{
-				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
-					// In the rollback failure case, orchestrator returns early.
-					if tc.rollbackErr != nil {
-						t.Fatalf("transactionNonParallel.Execute called, but rollback is expected to fail first")
-					}
-					return tc.txNonParallelErr
+			txNonParallel := fakeTxAggregatorUseCase{
+				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) (map[string]orchestrator.DataAggregator, error) {
+					t.Fatalf("transactionNonParallel.Execute should not be called for parallel rules")
+					return nil, nil
 				},
 			}
 
@@ -171,8 +175,8 @@ func TestParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
-			err := o.Transaction(ctx, input)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, nil, rollback, nil, nil)
+			_, err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {
 				if err != nil {
@@ -266,9 +270,9 @@ func TestNonParallel(t *testing.T) {
 				},
 			}
 
-			txNonParallel := fakeTxUseCase{
-				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) error {
-					return tc.txNonParallelErr
+			txNonParallel := fakeTxAggregatorUseCase{
+				exec: func(ctx context.Context, transactions []rule.HTTPConfig, payload orchestrator.Input, conf rule.Configs) (map[string]orchestrator.DataAggregator, error) {
+					return nil, tc.txNonParallelErr
 				},
 			}
 
@@ -281,8 +285,8 @@ func TestNonParallel(t *testing.T) {
 				},
 			}
 
-			o := orchestrator.New(memStore, store, txParallel, txNonParallel, rollback)
-			err := o.Transaction(ctx, input)
+			o := orchestrator.New(memStore, store, txParallel, txNonParallel, nil, rollback, nil, nil)
+			_, err := o.Transaction(ctx, input)
 
 			if tc.wantErr == nil {
 				if err != nil {

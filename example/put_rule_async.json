@@ -1,26 +1,26 @@
 {
-   "name": "my-rule-non-parallel",
+   "name": "my-rule-async",
    "transactions": [
       {
          "service_name": "order",
-         "url": "http://localhost:3002/order",
+         "url": "http://consumer:3333/order",
          "method": "POST"
       },
       {
          "service_name": "payment",
-         "url": "http://localhost:3003/payment",
+         "url": "http://consumer:3333/payment",
          "method": "POST"
       }
    ],
    "rollback": [
       {
          "service_name": "order",
-         "url": "http://localhost:3002/rollback",
+         "url": "http://consumer:3333/rollback",
          "method": "DELETE"
       },
       {
          "service_name": "payment",
-         "url": "http://localhost:3003/rollback",
+         "url": "http://consumer:3333/rollback",
          "method": "DELETE"
       }
    ],

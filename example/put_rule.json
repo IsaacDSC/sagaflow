@@ -2,27 +2,26 @@
    "name": "my-rule",
    "transactions": [
       {
-         "url": "http://example:3002/order",
+         "service_name": "order",
+         "url": "http://localhost:3002/order",
          "method": "POST"
       },
       {
-         "url": "http://example:3003/payment",
+         "service_name": "payment",
+         "url": "http://localhost:3003/payment",
          "method": "POST"
       }
    ],
    "rollback": [
       {
-         "url": "http://example:3002/order/rollback",
+         "service_name": "order",
+         "url": "http://localhost:3002/order/rollback",
          "method": "DELETE"
       },
       {
-         "url": "http://example:3003/payment/rollback",
+         "service_name": "payment",
+         "url": "http://localhost:3003/payment/rollback",
          "method": "DELETE"
-      }
-   ],
-   "transforms": [
-      {
-         "url": "http://example:3002/transform-payload"
       }
    ],
    "configs": {

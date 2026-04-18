@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,7 +16,7 @@ func main() {
 
 var counter int
 
-const limit = 50
+// const limit = 2
 
 func server01() {
 	mux := http.NewServeMux()
@@ -25,15 +26,15 @@ func server01() {
 		// 	w.WriteHeader(http.StatusInternalServerError)
 		// 	return
 		// }
-		if counter < limit {
-			counter++
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte("Too many requests"))
-			fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
-			return
-		}
+		// if counter < limit {
+		// 	counter++
+		// 	w.WriteHeader(http.StatusTooManyRequests)
+		// 	_, _ = w.Write([]byte("Too many requests"))
+		// 	fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
+		// 	return
+		// }
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("Hello, World!"))
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
 		fmt.Printf("[*] Request accepted: %s %s\n", r.Method, r.URL.Path)
 		counter++
 	})
@@ -49,15 +50,15 @@ func server02() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[*] Request received: %s %s, counter: %d\n", r.Method, r.URL.Path, counter)
-		if counter < limit {
-			counter++
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte("Too many requests"))
-			fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
-			return
-		}
+		// if counter < limit {
+		// 	counter++
+		// 	w.WriteHeader(http.StatusTooManyRequests)
+		// 	_, _ = w.Write([]byte("Too many requests"))
+		// 	fmt.Printf("[*] Request rejected: %s %s\n", r.Method, r.URL.Path)
+		// 	return
+		// }
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("Hello, World!"))
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
 		fmt.Printf("[*] Request accepted: %s %s\n", r.Method, r.URL.Path)
 		counter++
 	})

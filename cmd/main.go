@@ -20,6 +20,7 @@ import (
 	"github.com/IsaacDSC/sagaflow/internal/putrule"
 	"github.com/IsaacDSC/sagaflow/internal/store"
 	"github.com/IsaacDSC/sagaflow/pkg/connector"
+	"github.com/IsaacDSC/sagaflow/pkg/gqueue"
 	"github.com/IsaacDSC/sagaflow/pkg/logger"
 	_ "github.com/lib/pq"
 )
@@ -59,18 +60,38 @@ func main() {
 	transactionParallel := orchestrator.NewTransactionParallel(memStore, gate)
 	transactionNonParallel := orchestrator.NewTransactionNonParallel(memStore, gate)
 	rollbackParallel := orchestrator.NewRollbackParallel(psqlStore, gate)
+
+	var (
+		gqClient           gqueue.API
+		transactionAsync   orchestrator.TransactionAsyncUseCase
+	)
+	if conf.Gqueue.BaseURL != "" {
+		c, err := gqueue.NewClient(
+			gqueue.WithBaseURL(conf.Gqueue.BaseURL),
+			gqueue.WithBasicAuth(conf.Gqueue.BasicUser, conf.Gqueue.BasicPassword),
+		)
+		if err != nil {
+			panic(err)
+		}
+		gqClient = c
+		transactionAsync = orchestrator.NewTransactionAsync(gqClient, conf.Gqueue.PublisherServiceName)
+	}
+
 	orchestratorService := orchestrator.New(
 		memStore,
 		psqlStore,
 		transactionParallel,
 		transactionNonParallel,
+		transactionAsync,
 		rollbackParallel,
+		gqClient,
+		psqlStore,
 	)
 
 	handlers := []connector.Handler{
 		health.Handler(),
 		entry.Handler(orchestratorService),
-		putrule.Handler(psqlStore),
+		putrule.Handler(orchestratorService),
 	}
 
 	mux := http.NewServeMux()
