@@ -3,7 +3,6 @@ package orchestrator
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/IsaacDSC/sagaflow/internal/rule"
@@ -14,14 +13,20 @@ import (
 
 // TransactionAsync publishes each saga step to gqueue (POST /api/v1/pubsub) instead of invoking HTTP endpoints directly.
 type TransactionAsync struct {
-	queue gqueue.API
+	queue                gqueue.API
+	publisherServiceName string
 }
 
 // NewTransactionAsync returns a use case that uses the given gqueue client. publisherServiceName is the
-// "service_name" field on publish payloads (defaults to "sagaflow" when empty).
+// prefix used in PublishInput.ServiceName as "{publisherServiceName}:rule:{ruleName}" (defaults to "sagaflow" when empty).
 func NewTransactionAsync(queue gqueue.API, publisherServiceName string) *TransactionAsync {
+	name := strings.TrimSpace(publisherServiceName)
+	if name == "" {
+		name = "sagaflow"
+	}
 	return &TransactionAsync{
-		queue: queue,
+		queue:                queue,
+		publisherServiceName: name,
 	}
 }
 
@@ -32,10 +37,12 @@ func (t *TransactionAsync) Execute(ctx context.Context, ruleName string, payload
 	}
 	l := logger.FromContext(ctx)
 
+	rn := strings.TrimSpace(ruleName)
+
 	data := map[string]any{"payload": payload.Data}
 	err := t.queue.Publish(ctx, gqueue.PublishInput{
-		EventName:   "my-rule-async",
-		ServiceName: fmt.Sprintf("sagaflow:rule:%s", strings.TrimSpace(ruleName)),
+		EventName:   rn,
+		ServiceName: t.publisherServiceName,
 		Data:        data,
 		Metadata: map[string]any{
 			"transaction_id":  payload.TransactionID.String(),

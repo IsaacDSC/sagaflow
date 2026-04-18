@@ -54,6 +54,11 @@ services:
       - "${SAGAFLOW_PORT:-3001}:3001"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-idsc}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-sagaflow}?sslmode=disable
+      # Optional: set when a gqueue instance is reachable from this container (async rules / pubsub).
+      GQUEUE_BASE_URL: ${GQUEUE_BASE_URL:-http://localhost:8080}
+      GQUEUE_BASIC_USER: ${GQUEUE_BASIC_USER:-admin}
+      GQUEUE_BASIC_PASSWORD: ${GQUEUE_BASIC_PASSWORD:-admin}
+      GQUEUE_PUBLISHER_SERVICE_NAME: ${GQUEUE_PUBLISHER_SERVICE_NAME:-sagaflow}
     depends_on:
       migrate:
         condition: service_completed_successfully

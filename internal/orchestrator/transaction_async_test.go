@@ -28,8 +28,11 @@ func TestTransactionAsync_Execute(t *testing.T) {
 	api.EXPECT().Publish(gomock.Any(), gomock.AssignableToTypeOf(gqueue.PublishInput{})).
 		Times(1).
 		DoAndReturn(func(ctx context.Context, in gqueue.PublishInput) error {
-			if in.ServiceName != "sagaflow:rule:my-rule" {
+			if in.ServiceName != "sagaflow-test" {
 				t.Fatalf("ServiceName = %q", in.ServiceName)
+			}
+			if in.EventName != "my-rule" {
+				t.Fatalf("EventName = %q, want my-rule", in.EventName)
 			}
 			if in.Data["payload"] == nil {
 				t.Fatal("expected payload in data")
@@ -55,7 +58,14 @@ func TestTransactionAsync_Execute_parallelConfigsStillSinglePublish(t *testing.T
 		Data:           nil,
 	}
 
-	api.EXPECT().Publish(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	api.EXPECT().Publish(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, in gqueue.PublishInput) error {
+			if in.ServiceName != "sagaflow" {
+				t.Fatalf("ServiceName = %q, want sagaflow", in.ServiceName)
+			}
+			return nil
+		}).
+		Times(1)
 
 	svc := orchestrator.NewTransactionAsync(api, "")
 	if err := svc.Execute(ctx, "rule-a", payload, rule.Configs{Parallel: true}); err != nil {
