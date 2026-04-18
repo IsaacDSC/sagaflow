@@ -210,6 +210,7 @@ func (o Orchestrator) Transaction(ctx context.Context, txInput Input) (map[strin
 			return output, ErrorAsyncNotConfigured
 		}
 		err = o.transactionAsync.Execute(ctx, orchestrator.Name, txInput, orchestrator.Configs)
+		// Not implemented rollback for async rules, because the rollback is executed in dlq (dead letter queue)
 	} else if orchestrator.Configs.Parallel {
 		err = o.transactionParallel.Execute(ctx, orchestrator.Transactions, txInput, orchestrator.Configs)
 		if errors.Is(err, ErrorConsumerTransaction) {
